@@ -6,15 +6,14 @@ export interface Product {
   category?: string;
   price: number;
   salePrice?: number;
-  costPrice?: number;
   discountPercent?: number;
+  image?: string;
 }
 
 export interface InvoiceItem {
   productId: string;
   productName: string;
   price: number;
-  costPrice?: number;
   discount?: number;
   notes?: string;
 }
@@ -46,8 +45,6 @@ export interface Invoice {
   paidDate?: string; // ISO string, set when payment is completed
   items: InvoiceItem[];
   total: number;
-  totalProfit?: number;
-  totalCost?: number;
   type: OrderType;
   customerInfo?: {
     id?: string | null;
@@ -95,7 +92,6 @@ export type FinancialTransactionType =
     'sale_income' 
     | 'expense' 
     | 'capital_deposit' 
-    | 'profit_withdrawal' 
     | 'return_refund'
     | 'transfer'
     | 'expense_reversal';

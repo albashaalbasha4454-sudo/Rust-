@@ -15,13 +15,13 @@ const createInitialUsers = (): User[] => {
 
 const createInitialProducts = (): Product[] => {
     return [
-        { id: 'prod-1', name: 'شاورما دجاج (وجبة)', type: 'product', category: 'وجبات رئيسية', price: 0, costPrice: 0 },
-        { id: 'prod-2', name: 'مشويات مشكلة (كجم)', type: 'product', category: 'وجبات رئيسية', price: 0, costPrice: 0 },
-        { id: 'prod-3', name: 'كبة مقلية (حبة)', type: 'product', category: 'مقبلات', price: 0, costPrice: 0 },
-        { id: 'prod-4', name: 'أرز (طبق)', type: 'product', category: 'مقبلات', price: 0, costPrice: 0 },
-        { id: 'prod-5', name: 'كنافة نابلسية', type: 'product', category: 'حلويات', price: 0, costPrice: 0 },
-        { id: 'prod-6', name: 'عصير برتقال فريش', type: 'product', category: 'مشروبات', price: 0, costPrice: 0 },
-        { id: 'prod-7', name: 'بيبسي (علبة)', type: 'product', category: 'مشروبات', price: 0, costPrice: 0 },
+        { id: 'prod-1', name: 'شاورما دجاج (وجبة)', type: 'product', category: 'وجبات رئيسية', price: 0 },
+        { id: 'prod-2', name: 'مشويات مشكلة (كجم)', type: 'product', category: 'وجبات رئيسية', price: 0 },
+        { id: 'prod-3', name: 'كبة مقلية (حبة)', type: 'product', category: 'مقبلات', price: 0 },
+        { id: 'prod-4', name: 'أرز (طبق)', type: 'product', category: 'مقبلات', price: 0 },
+        { id: 'prod-5', name: 'كنافة نابلسية', type: 'product', category: 'حلويات', price: 0 },
+        { id: 'prod-6', name: 'عصير برتقال فريش', type: 'product', category: 'مشروبات', price: 0 },
+        { id: 'prod-7', name: 'بيبسي (علبة)', type: 'product', category: 'مشروبات', price: 0 },
         { id: 'prod-8', name: 'خدمة توصيل', type: 'service', category: 'خدمات', price: 0 },
     ];
 };

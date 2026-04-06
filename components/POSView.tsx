@@ -61,7 +61,6 @@ const POSView: React.FC<POSViewProps> = ({ products, customers, onCompleteSale, 
       productName: product.name,
       price: basePrice,
       discount: discountAmount,
-      costPrice: product.costPrice,
     }]);
   };
 
@@ -152,6 +151,13 @@ const POSView: React.FC<POSViewProps> = ({ products, customers, onCompleteSale, 
                   className="group relative flex flex-col bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 text-right hover:shadow-xl hover:border-indigo-100 transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex-1">
+                    <div className="aspect-video w-full mb-3 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center">
+                        {p.image ? (
+                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                            <span className="material-symbols-outlined text-slate-200 text-3xl">image</span>
+                        )}
+                    </div>
                     <div className="flex justify-between items-start mb-2">
                         <div className="flex flex-col">
                             <span className="text-indigo-600 font-bold text-base sm:text-lg">

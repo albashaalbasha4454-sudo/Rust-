@@ -65,8 +65,6 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                 {invoice.customerInfo ? (
                     <div className="space-y-1">
                         <p className="font-bold text-lg text-dark-800">{invoice.customerInfo.name}</p>
-                        {invoice.customerInfo.phone && <p className="text-dark-600">هاتف: {invoice.customerInfo.phone}</p>}
-                        {invoice.customerInfo.address && <p className="text-dark-600">العنوان: {invoice.customerInfo.address}</p>}
                     </div>
                 ) : (
                     <p className="text-dark-600">طلب مباشر</p>
@@ -76,7 +74,6 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                 <h3 className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-3 border-b border-dark-100 pb-1 text-left">من</h3>
                 <div className="space-y-1">
                     <p className="font-bold text-lg text-dark-800">{shopName}</p>
-                    <p className="text-dark-600">{shopAddress}</p>
                     <p className="text-dark-500 text-xs">نظام إدارة مطابخ الشرق</p>
                 </div>
             </div>
@@ -124,7 +121,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                                 </div>
                                 <span className="font-bold text-dark-700">واتساب</span>
                             </div>
-                            <span className="font-mono text-dark-500">01012345678</span>
+                            <span className="font-mono text-dark-500">0958484741</span>
                         </div>
                     </div>
                 </div>

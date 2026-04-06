@@ -26,14 +26,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, toggleSidebar, o
             </div>
         </div>
         <div className="flex items-center gap-4">
-            <button 
-                onClick={() => setIsHelpModalOpen(true)} 
-                className="flex items-center gap-2 text-brand-600 hover:text-brand-800 p-2 rounded-lg hover:bg-brand-50 transition-colors"
-                title="دليل استخدام النظام"
-            >
-                <span className="material-symbols-outlined">help</span>
-                <span className="hidden sm:inline">مساعدة</span>
-            </button>
+            {currentUser.role === 'admin' && (
+                <button 
+                    onClick={() => setIsHelpModalOpen(true)} 
+                    className="flex items-center gap-2 text-brand-600 hover:text-brand-800 p-2 rounded-lg hover:bg-brand-50 transition-colors"
+                    title="دليل استخدام النظام"
+                >
+                    <span className="material-symbols-outlined">help</span>
+                    <span className="hidden sm:inline">مساعدة</span>
+                </button>
+            )}
             {(currentUser.role === 'cashier' || currentUser.role === 'admin') && (
                 <button 
                     onClick={onOpenCloseTillModal} 

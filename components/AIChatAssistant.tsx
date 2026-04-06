@@ -106,8 +106,8 @@ const addProductFunctionDeclaration: FunctionDeclaration = {
       name: { type: Type.STRING, description: 'اسم الصنف' },
       description: { type: Type.STRING, description: 'وصف الصنف (اختياري)' },
       price: { type: Type.NUMBER, description: 'سعر البيع' },
-      costPrice: { type: Type.NUMBER, description: 'سعر التكلفة (اختياري)' },
       category: { type: Type.STRING, description: 'التصنيف (مثلاً: وجبات رئيسية، مقبلات، مشروبات)' },
+      image: { type: Type.STRING, description: 'رابط الصورة أو كود base64 (اختياري)' },
     },
     required: ['name', 'price'],
   },
@@ -123,8 +123,8 @@ const updateProductFunctionDeclaration: FunctionDeclaration = {
       name: { type: Type.STRING, description: 'الاسم الجديد' },
       description: { type: Type.STRING, description: 'الوصف الجديد' },
       price: { type: Type.NUMBER, description: 'سعر البيع الجديد' },
-      costPrice: { type: Type.NUMBER, description: 'سعر التكلفة الجديد' },
       category: { type: Type.STRING, description: 'التصنيف الجديد' },
+      image: { type: Type.STRING, description: 'رابط الصورة الجديد' },
     },
     required: ['id'],
   },
@@ -287,7 +287,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
         const systemInstruction = `
           أنت مساعد أعمال ذكي ومتكامل باللغة العربية. مهمتك هي مساعدة المستخدم في إدارة أعمال مطعمه "مطابخ الشرق" بشكل كامل.
           لديك القدرة على:
-          1.  **تحليل البيانات:** قدم رؤى دقيقة وقابلة للتنفيذ حول المبيعات، المصروفات، والعملاء. يمكنك إنشاء تقارير متقدمة مثل تقارير الأرباح والخسائر.
+          1.  **تحليل البيانات:** قدم رؤى دقيقة وقابلة للتنفيذ حول المبيعات، المصروفات، والعملاء. يمكنك إنشاء تقارير متقدمة.
           2.  **إدارة القائمة:** يمكنك إضافة، تعديل، وحذف الأصناف من القائمة.
           3.  **إدارة المصروفات:** يمكنك تسجيل وحذف المصروفات. لتعديل مصروف، يجب حذفه ثم إضافته من جديد.
           4.  **إدارة العملاء:** يمكنك إضافة، تعديل، وحذف العملاء من السجل.
@@ -347,7 +347,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
                         const updatedData = {
                             name: args.name || existingProduct.name,
                             price: args.price ?? existingProduct.price,
-                            costPrice: args.costPrice ?? existingProduct.costPrice,
                             description: args.description ?? existingProduct.description,
                             category: args.category ?? existingProduct.category,
                             type: existingProduct.type,
@@ -404,7 +403,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
                             productId: product.id,
                             productName: product.name,
                             price: product.price,
-                            costPrice: product.costPrice,
                         });
                     }
                     if (salePossible) {

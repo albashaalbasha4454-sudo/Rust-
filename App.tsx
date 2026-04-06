@@ -151,7 +151,6 @@ const App: React.FC = () => {
         if (!currentUser) throw new Error("No user is logged in.");
 
         const total = items.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0) + deliveryFee;
-        const totalCost = items.reduce((sum, item) => sum + (item.costPrice || 0), 0);
         
         const isImmediate = type === 'sale';
         const isRestaurantOrder = type === 'dine_in' || type === 'takeaway';
@@ -162,8 +161,6 @@ const App: React.FC = () => {
             type,
             items: items.map(item => ({...item})),
             total,
-            totalCost,
-            totalProfit: total - totalCost - deliveryFee,
             customerInfo,
             deliveryFee,
             source,
@@ -263,14 +260,12 @@ const App: React.FC = () => {
         if (!currentUser) return;
         if (!window.confirm('هل أنت متأكد من إتمام عملية الإرجاع؟ سيتم استرداد المبلغ.')) return;
         const total = returnItems.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0);
-        const totalProfit = returnItems.reduce((sum, item) => sum + ((item.price - (item.discount || 0)) - (item.costPrice || 0)), 0);
         const newReturnInvoice: Invoice = {
             id: `ret-${Date.now()}`,
             date: new Date().toISOString(),
             type: 'return',
             items: returnItems,
             total: -total,
-            totalProfit: -totalProfit,
             status: 'completed',
             paymentStatus: 'paid', // Refund is considered a 'paid' transaction
             processedBy: currentUser.username,

@@ -51,9 +51,9 @@ const DashboardView: React.FC<{
   const chartInstances = useRef<{ [key: string]: Chart | null }>({});
 
   const {
-    netSales, grossProfit, totalExpenses, netProfit, 
+    netSales, totalExpenses, 
     pendingOrders, recentSales, dailyData,
-    todayNetSales, todayProfit,
+    todayNetSales,
     expenseBreakdown, topProducts
   } = useMemo(() => {
     const today = new Date();
@@ -88,11 +88,7 @@ const DashboardView: React.FC<{
     const totalReturnsValue = returns.reduce((sum, inv) => sum + inv.total, 0); 
     const netSales = totalSalesValue + totalReturnsValue;
 
-    const cogs = completedSales.reduce((sum, inv) => sum + (inv.totalCost || 0), 0);
-    const grossProfit = netSales - cogs;
-    
     const totalExpensesValue = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const netProfit = grossProfit - totalExpensesValue;
 
     // Today's metrics
     const todaySales = invoices.filter(inv => 
@@ -100,7 +96,6 @@ const DashboardView: React.FC<{
     );
     const todayReturns = invoices.filter(inv => inv.type === 'return' && isToday(inv.date));
     const todayNetSales = todaySales.reduce((sum, inv) => sum + inv.total, 0) + todayReturns.reduce((sum, inv) => sum + inv.total, 0);
-    const todayProfit = todaySales.reduce((sum, inv) => sum + (inv.totalProfit || 0), 0) + todayReturns.reduce((sum, inv) => sum + (inv.totalProfit || 0), 0);
 
     const pendingOrders = invoices.filter(inv => inv.status === 'pending' && (inv.type === 'delivery' || inv.type === 'reservation')).length;
 
@@ -109,7 +104,7 @@ const DashboardView: React.FC<{
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
         
-    const dailyData: { [date: string]: { profit: number, expense: number, sales: number } } = {};
+    const dailyData: { [date: string]: { expense: number, sales: number } } = {};
     
     // Initialize dates for the selected range to ensure continuous lines
     if (dateRange !== 'all') {
@@ -118,19 +113,18 @@ const DashboardView: React.FC<{
             const d = new Date();
             d.setDate(today.getDate() - i);
             const dateStr = d.toISOString().split('T')[0];
-            dailyData[dateStr] = { profit: 0, expense: 0, sales: 0 };
+            dailyData[dateStr] = { expense: 0, sales: 0 };
         }
     }
 
      [...completedSales, ...returns].forEach(inv => {
         const day = new Date(inv.date).toISOString().split('T')[0];
-        if (!dailyData[day]) dailyData[day] = { profit: 0, expense: 0, sales: 0 };
-        dailyData[day].profit += inv.totalProfit || 0;
+        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0 };
         dailyData[day].sales += inv.total;
     });
     filteredExpenses.forEach(exp => {
         const day = new Date(exp.date).toISOString().split('T')[0];
-        if (!dailyData[day]) dailyData[day] = { profit: 0, expense: 0, sales: 0 };
+        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0 };
         dailyData[day].expense += exp.amount;
     });
 
@@ -156,25 +150,22 @@ const DashboardView: React.FC<{
         .slice(0, 5);
 
     return {
-        netSales, grossProfit, totalExpenses: totalExpensesValue, netProfit, 
+        netSales, totalExpenses: totalExpensesValue, 
         pendingOrders, recentSales,
-        dailyData, todayNetSales, todayProfit,
+        dailyData, todayNetSales,
         expenseBreakdown, topProducts
     };
   }, [invoices, expenses, products, dateRange]);
 
-  const [printContent, setPrintContent] = useState<{ title: string, items: any[], type: 'sales' | 'profit' | 'expenses' } | null>(null);
+  const [printContent, setPrintContent] = useState<{ title: string, items: any[], type: 'sales' | 'expenses' } | null>(null);
 
-  const handlePrint = (type: 'sales' | 'profit' | 'expenses') => {
+  const handlePrint = (type: 'sales' | 'expenses') => {
       let title = "";
       let items: any[] = [];
       
       if (type === 'sales') {
           title = `تقرير المبيعات - ${dateRangeText}`;
           items = invoices.filter(inv => (inv.type === 'sale' || (inv.type === 'shipping' && inv.status === 'completed')) && (dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
-      } else if (type === 'profit') {
-          title = `تقرير الأرباح اليومي - ${new Date().toLocaleDateString()}`;
-          items = invoices.filter(inv => (inv.type === 'sale' || (inv.type === 'shipping' && inv.status === 'completed')) && inv.date.split('T')[0] === new Date().toISOString().split('T')[0]);
       } else if (type === 'expenses') {
           title = `تقرير المصروفات - ${dateRangeText}`;
           items = expenses.filter(exp => (dateRange === 'all' || new Date(exp.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
@@ -355,11 +346,8 @@ const DashboardView: React.FC<{
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <StatCard title="صافي مبيعات اليوم" value={`${todayNetSales.toFixed(2)}`} icon="today" valueClassName="text-emerald-600" subtext="اليوم فقط" />
-        <StatCard title="ربح اليوم" value={`${todayProfit.toFixed(2)}`} icon="payments" valueClassName="text-green-600" subtext="اليوم فقط" />
         <StatCard title="صافي المبيعات" value={`${netSales.toFixed(2)}`} icon="monitoring" valueClassName="text-indigo-600" subtext={dateRangeText} />
-        <StatCard title="إجمالي الربح" value={`${grossProfit.toFixed(2)}`} icon="account_balance" valueClassName="text-sky-600" subtext={dateRangeText} />
         <StatCard title="المصروفات" value={`${totalExpenses.toFixed(2)}`} icon="receipt_long" valueClassName="text-red-500" subtext={dateRangeText} />
-        <StatCard title="صافي الربح" value={`${netProfit.toFixed(2)}`} icon="trending_up" valueClassName={netProfit >= 0 ? 'text-green-600' : 'text-red-600'} subtext={dateRangeText}/>
         <StatCard title="طلبات قيد الانتظار" value={pendingOrders} icon="pending_actions" valueClassName="text-orange-600" subtext="توصيل وحجوزات" />
       </div>
 
@@ -368,10 +356,6 @@ const DashboardView: React.FC<{
               <span className="material-symbols-outlined text-indigo-600 text-lg">print</span>
               <span className="whitespace-nowrap">طباعة المبيعات</span>
           </button>
-          <button onClick={() => handlePrint('profit')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all text-slate-700 font-medium text-sm" title="طباعة تقرير الأرباح الصافية لليوم الحالي">
-              <span className="material-symbols-outlined text-green-600 text-lg">print</span>
-              <span className="whitespace-nowrap">طباعة الربح اليومي</span>
-          </button>
           <button onClick={() => handlePrint('expenses')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all text-slate-700 font-medium text-sm" title="طباعة تقرير بجميع المصروفات المسجلة للفترة المختارة">
               <span className="material-symbols-outlined text-red-600 text-lg">print</span>
               <span className="whitespace-nowrap">طباعة المصروفات</span>
@@ -379,20 +363,13 @@ const DashboardView: React.FC<{
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <span className="material-symbols-outlined text-indigo-500">bar_chart</span>
                 اتجاه المبيعات ({dateRangeText})
             </h3>
             <div className="relative h-72"><canvas ref={salesTrendChartRef}></canvas></div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-green-500">stacked_line_chart</span>
-                الأرباح والمصروفات ({dateRangeText})
-            </h3>
-            <div className="relative h-72"><canvas ref={profitExpenseChartRef}></canvas></div>
           </div>
       </div>
 
@@ -449,7 +426,6 @@ const DashboardView: React.FC<{
                           <th className="border border-slate-300 p-2">التاريخ</th>
                           <th className="border border-slate-300 p-2">البيان / الوصف</th>
                           <th className="border border-slate-300 p-2">المبلغ</th>
-                          {printContent.type === 'profit' && <th className="border border-slate-300 p-2">الربح</th>}
                       </tr>
                   </thead>
                   <tbody>
@@ -460,7 +436,6 @@ const DashboardView: React.FC<{
                                   {printContent.type === 'expenses' ? item.description : (item.customerInfo?.name || "طلب مباشر")}
                               </td>
                               <td className="border border-slate-300 p-2">{(item.total ?? item.amount ?? 0).toFixed(2)}</td>
-                              {printContent.type === 'profit' && <td className="border border-slate-300 p-2">{item.totalProfit?.toFixed(2)}</td>}
                           </tr>
                       ))}
                   </tbody>
@@ -470,11 +445,6 @@ const DashboardView: React.FC<{
                           <td className="border border-slate-300 p-2">
                               {printContent.items.reduce((sum, i) => sum + (i.total ?? i.amount ?? 0), 0).toFixed(2)}
                           </td>
-                          {printContent.type === 'profit' && (
-                              <td className="border border-slate-300 p-2">
-                                  {printContent.items.reduce((sum, i) => sum + (i.totalProfit || 0), 0).toFixed(2)}
-                              </td>
-                          )}
                       </tr>
                   </tfoot>
               </table>

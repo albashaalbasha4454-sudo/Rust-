@@ -246,12 +246,12 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
         )}
         <div className="space-y-2 md:space-y-0">
             {/* Desktop Header */}
-            <div className="hidden md:grid md:grid-cols-[auto,1fr,auto,auto,auto,auto] gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider px-4 py-4 border-b border-slate-200">
+            <div className="hidden md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider px-4 py-4 border-b border-slate-200">
                 <div className="text-center"><input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /></div>
+                <div className="w-12">الصورة</div>
                 <div>المنتج</div>
                 <div className="text-center">النوع</div>
                 <div className="text-right">السعر</div>
-                <div className="text-right">التكلفة</div>
                 <div className="text-center">الإجراءات</div>
             </div>
 
@@ -259,7 +259,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
             <div className="space-y-3 md:space-y-0 divide-y divide-slate-100">
             {paginatedProducts.map((p) => (
                 <div key={p.id} className={`
-                    md:grid md:grid-cols-[auto,1fr,auto,auto,auto,auto] md:gap-4 md:items-center
+                    md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] md:gap-4 md:items-center
                     p-4 md:px-4 md:py-3 
                     hover:bg-indigo-50/30 ${selectedProducts.has(p.id) ? 'bg-indigo-50/50' : 'bg-white md:bg-transparent'}
                     block rounded-lg md:rounded-none shadow-sm md:shadow-none transition-colors
@@ -269,10 +269,28 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
                         <input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => handleSelectProduct(p.id)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                     </div>
 
+                    {/* Image Desktop */}
+                    <div className="hidden md:block">
+                        <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                            {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                <span className="material-symbols-outlined text-slate-400">image</span>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Mobile Header: Checkbox, Name, Actions */}
                     <div className="flex justify-between items-start mb-4 md:hidden">
                         <div className="flex items-center gap-3">
                             <input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => handleSelectProduct(p.id)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                                {p.image ? (
+                                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                    <span className="material-symbols-outlined text-slate-400 text-sm">image</span>
+                                )}
+                            </div>
                             <h3 className="font-bold text-slate-800 text-base">{p.name}</h3>
                         </div>
                         <div className="flex items-center justify-center gap-1">
@@ -288,7 +306,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:hidden">
                         <div><span className="text-slate-500">النوع:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.type === 'service' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>{p.type === 'service' ? 'خدمة' : 'منتج'}</span></div>
                         <div><span className="text-slate-500">السعر:</span> <span>{p.salePrice ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-green-600">{p.salePrice.toFixed(2)}</span></> : p.discountPercent ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-orange-600">{(p.price * (1 - p.discountPercent / 100)).toFixed(2)}</span> <span className="text-[10px] text-orange-500">({p.discountPercent}%)</span></> : p.price.toFixed(2)}</span></div>
-                        <div><span className="text-slate-500">التكلفة:</span> <span>{p.costPrice ? p.costPrice.toFixed(2) : '-'}</span></div>
                     </div>
 
                     {/* Desktop Data Cells */}
@@ -307,7 +324,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
                             </div>
                         ) : <span className="font-medium text-slate-800">{p.price.toFixed(2)}</span>}
                     </div>
-                    <div className="hidden md:block text-right text-slate-600 font-medium">{p.costPrice ? p.costPrice.toFixed(2) : '-'}</div>
                     <div className="hidden md:flex items-center justify-center gap-2">
                         <button onClick={() => handleOpenModal(p)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-blue-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="تعديل"><span className="material-symbols-outlined text-lg">edit</span></button>
                         <button onClick={() => handleDelete(p.id)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-red-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="حذف"><span className="material-symbols-outlined text-lg">delete</span></button>
@@ -347,10 +363,25 @@ const ProductModal: React.FC<{
   const [price, setPrice] = useState(product?.price.toString() || '');
   const [salePrice, setSalePrice] = useState(product?.salePrice?.toString() || '');
   const [discountPercent, setDiscountPercent] = useState(product?.discountPercent?.toString() || '');
-  const [costPrice, setCostPrice] = useState(product?.costPrice?.toString() || '');
   const [category, setCategory] = useState(product?.category || '');
+  const [image, setImage] = useState(product?.image || '');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isAutofilling, setIsAutofilling] = useState(false);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) { // 500KB limit for localStorage
+        alert('حجم الصورة كبير جداً. يرجى اختيار صورة أقل من 500 كيلوبايت.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAutofill = async () => { /* ... (implementation exists) ... */ };
 
@@ -367,25 +398,56 @@ const ProductModal: React.FC<{
     }
     
     onSave({
-      name, description, category, type,
+      name, description, category, type, image,
       price: parseFloat(price),
       salePrice: salePrice ? parseFloat(salePrice) : undefined,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
-      costPrice: costPrice && type === 'product' ? parseFloat(costPrice) : undefined,
     });
   };
 
   return (
     <Modal isOpen={true} onClose={onClose} title={product ? 'تعديل منتج' : 'إضافة منتج/خدمة'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField id="name" label="اسم المنتج/الخدمة" value={name} onChange={e => setName(e.target.value)} error={errors.name} />
+            <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex-1 space-y-4">
+                    <InputField id="name" label="اسم المنتج/الخدمة" value={name} onChange={e => setName(e.target.value)} error={errors.name} />
 
-            <div className="mb-4">
-              <label htmlFor="type" className="block text-slate-700 text-sm font-bold mb-2">نوع العنصر</label>
-              <select id="type" value={type} onChange={e => setType(e.target.value as Product['type'])} className="w-full p-2 border rounded-lg bg-white border-slate-300">
-                  <option value="product">منتج مادي</option>
-                  <option value="service">خدمة</option>
-              </select>
+                    <div className="mb-4">
+                        <label htmlFor="type" className="block text-slate-700 text-sm font-bold mb-2">نوع العنصر</label>
+                        <select id="type" value={type} onChange={e => setType(e.target.value as Product['type'])} className="w-full p-2 border rounded-lg bg-white border-slate-300">
+                            <option value="product">منتج مادي</option>
+                            <option value="service">خدمة</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="w-full md:w-48">
+                    <label className="block text-slate-700 text-sm font-bold mb-2">صورة المنتج</label>
+                    <div className="relative group aspect-square rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden hover:border-indigo-300 transition-all">
+                        {image ? (
+                            <>
+                                <img src={image} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                <button 
+                                    type="button"
+                                    onClick={() => setImage('')}
+                                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <span className="material-symbols-outlined text-sm">close</span>
+                                </button>
+                            </>
+                        ) : (
+                            <div className="text-center p-4">
+                                <span className="material-symbols-outlined text-slate-300 text-4xl mb-2">add_a_photo</span>
+                                <p className="text-[10px] text-slate-400">انقر لرفع صورة</p>
+                            </div>
+                        )}
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleImageChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                    </div>
+                </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -394,8 +456,7 @@ const ProductModal: React.FC<{
               <InputField id="discountPercent" label="نسبة الخصم %" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} type="number" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField id="costPrice" label="سعر التكلفة (اختياري)" value={costPrice} onChange={e => setCostPrice(e.target.value)} type="number" />
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <InputField id="category" label="التصنيف (اختياري)" value={category} onChange={e => setCategory(e.target.value)} />
             </div>
             <InputField id="description" label="الوصف (اختياري)" value={description} onChange={e => setDescription(e.target.value)} />

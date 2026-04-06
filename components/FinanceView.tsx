@@ -44,7 +44,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ accounts, accountBalances, tr
         case 'expense': return `مصروف: ${tx.description} (من ${from})`;
         case 'expense_reversal': return `إلغاء مصروف: ${tx.description} (إلى ${to})`;
         case 'capital_deposit': return `إيداع رأس مال في ${to}`;
-        case 'profit_withdrawal': return `سحب أرباح من ${from}`;
         case 'transfer': return `تحويل من ${from} إلى ${to}`;
         default: return tx.description;
     }
@@ -132,9 +131,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ accounts, accountBalances, tr
                      </button>
                      <button onClick={() => handleOpenTransactionModal('capital_deposit')} className="w-full text-right flex items-center gap-3 p-3 bg-slate-100 hover:bg-slate-200 rounded-lg transition" title="إضافة مبالغ مالية إلى رأس مال المشروع">
                         <span className="material-symbols-outlined text-green-600">arrow_downward</span> <span>إيداع رأس مال</span>
-                     </button>
-                     <button onClick={() => handleOpenTransactionModal('profit_withdrawal')} className="w-full text-right flex items-center gap-3 p-3 bg-slate-100 hover:bg-slate-200 rounded-lg transition" title="سحب مبالغ من الأرباح الصافية للمشروع">
-                        <span className="material-symbols-outlined text-orange-600">arrow_upward</span> <span>سحب أرباح</span>
                      </button>
                       <button onClick={() => handleOpenTransactionModal('transfer')} className="w-full text-right flex items-center gap-3 p-3 bg-slate-100 hover:bg-slate-200 rounded-lg transition" title="نقل مبالغ مالية من حساب إلى حساب آخر (مثلاً من البنك إلى الكاش)">
                         <span className="material-symbols-outlined text-blue-600">sync_alt</span> <span>تحويل بين الحسابات</span>
