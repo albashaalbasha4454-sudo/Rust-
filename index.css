@@ -1,0 +1,6 @@
+/* Global styles for مطابخ الشرق */
+@import "tailwindcss";
+
+body {
+  font-family: 'Cairo', sans-serif;
+}
