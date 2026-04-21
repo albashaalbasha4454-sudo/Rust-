@@ -30,7 +30,10 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
                invDate < tomorrow;
     });
 
-    const todaysSales = todaysUserInvoices.filter(inv => inv.type === 'sale' || (inv.type === 'delivery' && inv.status === 'completed' && inv.paymentStatus === 'paid'));
+    const todaysSales = todaysUserInvoices.filter(inv => 
+        ['sale', 'dine_in', 'takeaway'].includes(inv.type) || 
+        (['delivery', 'reservation'].includes(inv.type) && inv.status === 'completed' && inv.paymentStatus === 'paid')
+    );
     const todaysReturns = todaysUserInvoices.filter(inv => inv.type === 'return');
     
     const totalSales = todaysSales.reduce((sum, inv) => sum + inv.total, 0);

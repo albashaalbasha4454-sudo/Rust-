@@ -145,7 +145,19 @@ const DashboardView: React.FC<{
             productSales[item.productId].total += (item.price - (item.discount || 0));
         });
     });
+    
+    // Deduct returns from product stats
+    returns.forEach(inv => {
+        inv.items.forEach(item => {
+            if (productSales[item.productId]) {
+                productSales[item.productId].count -= 1;
+                productSales[item.productId].total -= (item.price - (item.discount || 0));
+            }
+        });
+    });
+
     const topProducts = Object.values(productSales)
+        .filter(p => p.total > 0) // only show products with positive net sales
         .sort((a, b) => b.total - a.total)
         .slice(0, 5);
 
@@ -165,7 +177,11 @@ const DashboardView: React.FC<{
       
       if (type === 'sales') {
           title = `تقرير المبيعات - ${dateRangeText}`;
-          items = invoices.filter(inv => (inv.type === 'sale' || (inv.type === 'shipping' && inv.status === 'completed')) && (dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
+          items = invoices.filter(inv => {
+              const isSaleType = inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || inv.type === 'return' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed');
+              const dateInRange = dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)));
+              return isSaleType && dateInRange;
+          });
       } else if (type === 'expenses') {
           title = `تقرير المصروفات - ${dateRangeText}`;
           items = expenses.filter(exp => (dateRange === 'all' || new Date(exp.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));

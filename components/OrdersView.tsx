@@ -249,11 +249,11 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
                                     <p><strong>رسوم التوصيل:</strong> {inv.deliveryFee?.toFixed(2) || '0.00'}</p>
                                     {inv.notes && <p className="text-indigo-600"><strong>ملاحظات:</strong> {inv.notes}</p>}
                                 </div>
-                                <div>
-                                    <h4 className="font-bold mb-1">الأصناف:</h4>
+                                <div className="overflow-x-auto pb-2 no-scrollbar">
+                                    <h4 className="font-bold mb-1 whitespace-nowrap">الأصناف:</h4>
                                     <ul className="list-disc list-inside space-y-1">
                                         {inv.items.map(item => (
-                                            <li key={item.productId}>
+                                            <li key={item.productId} className="whitespace-nowrap">
                                                 {item.productName}
                                                 {item.notes && <span className="text-indigo-500 text-[10px] mr-2 italic">[{item.notes}]</span>}
                                             </li>

@@ -49,8 +49,8 @@ const ReportsView: React.FC<{
 
     const salesInvoices = invoices.filter(inv => {
         const invDate = new Date(inv.paidDate || inv.date);
-        const isCompletedOrder = (inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed' && inv.paymentStatus === 'paid'));
-        return isCompletedOrder && invDate >= start && invDate <= end;
+        const isRevenueType = (inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || inv.type === 'return' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed' && inv.paymentStatus === 'paid'));
+        return isRevenueType && invDate >= start && invDate <= end;
     });
     
     const filteredExpenses = expenses.filter(exp => {
@@ -90,11 +90,17 @@ const ReportsView: React.FC<{
     if (salesByCategoryCtx) {
         const categorySales: { [key: string]: number } = {};
         salesInvoices.forEach(inv => {
+            const isReturn = inv.type === 'return';
             inv.items.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
                 const category = product?.category || 'غير مصنف';
                 const itemTotal = (item.price - (item.discount || 0));
-                categorySales[category] = (categorySales[category] || 0) + itemTotal;
+                
+                if (isReturn) {
+                    categorySales[category] = (categorySales[category] || 0) - itemTotal;
+                } else {
+                    categorySales[category] = (categorySales[category] || 0) + itemTotal;
+                }
             });
         });
         const labels = Object.keys(categorySales);
@@ -119,12 +125,18 @@ const ReportsView: React.FC<{
     if (topProductsCtx) {
         const productSales: { [key: string]: { name: string, total: number } } = {};
         salesInvoices.forEach(inv => {
+            const isReturn = inv.type === 'return';
             inv.items.forEach(item => {
                 const itemTotal = (item.price - (item.discount || 0));
                 if (!productSales[item.productId]) {
                     productSales[item.productId] = { name: item.productName, total: 0 };
                 }
-                productSales[item.productId].total += itemTotal;
+                
+                if (isReturn) {
+                    productSales[item.productId].total -= itemTotal;
+                } else {
+                    productSales[item.productId].total += itemTotal;
+                }
             });
         });
         const topProducts = Object.values(productSales).sort((a,b) => b.total - a.total).slice(0, 5);
