@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import type { Invoice, Product, Expense, Customer, InvoiceItem } from '../types';
+import type { Invoice, Product, Expense, Customer } from '../types';
 import { Chart, registerables } from 'chart.js';
-import { exportToExcel } from '../lib/excelExport';
 
 Chart.register(...registerables);
 
@@ -137,23 +136,16 @@ const DashboardView: React.FC<{
 
     // Top Products
     const productSales: { [id: string]: { name: string, count: number, total: number } } = {};
-    
-    const processItems = (items: InvoiceItem[], factor: 1 | -1) => {
-        items.forEach(item => {
+    completedSales.forEach(inv => {
+        inv.items.forEach(item => {
             if (!productSales[item.productId]) {
                 productSales[item.productId] = { name: item.productName, count: 0, total: 0 };
             }
-            const qty = item.quantity || 1;
-            productSales[item.productId].count += factor * qty;
-            productSales[item.productId].total += factor * (item.price - (item.discount || 0)) * qty;
+            productSales[item.productId].count += 1;
+            productSales[item.productId].total += (item.price - (item.discount || 0));
         });
-    };
-
-    completedSales.forEach(inv => processItems(inv.items, 1));
-    returns.forEach(inv => processItems(inv.items, -1));
-
+    });
     const topProducts = Object.values(productSales)
-        .filter(p => p.total > 0) // only show products with positive net sales
         .sort((a, b) => b.total - a.total)
         .slice(0, 5);
 
@@ -173,11 +165,7 @@ const DashboardView: React.FC<{
       
       if (type === 'sales') {
           title = `تقرير المبيعات - ${dateRangeText}`;
-          items = invoices.filter(inv => {
-              const isSaleType = inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || inv.type === 'return' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed');
-              const dateInRange = dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)));
-              return isSaleType && dateInRange;
-          });
+          items = invoices.filter(inv => (inv.type === 'sale' || (inv.type === 'shipping' && inv.status === 'completed')) && (dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
       } else if (type === 'expenses') {
           title = `تقرير المصروفات - ${dateRangeText}`;
           items = expenses.filter(exp => (dateRange === 'all' || new Date(exp.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
@@ -188,43 +176,6 @@ const DashboardView: React.FC<{
           window.print();
           setPrintContent(null);
       }, 100);
-  };
-
-  const handleExportExcel = (type: 'sales' | 'expenses') => {
-    let data: any[] = [];
-    let fileName = "";
-    
-    if (type === 'sales') {
-        fileName = `مبيعات_${dateRangeText}`;
-        const filteredSales = invoices.filter(inv => {
-            const isSaleType = inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || inv.type === 'return' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed');
-            const dateInRange = dateRange === 'all' || new Date(inv.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)));
-            return isSaleType && dateInRange;
-        });
-        data = filteredSales.map(inv => ({
-            'التاريخ': new Date(inv.date).toLocaleString('ar-EG'),
-            'رقم الفاتورة': inv.id,
-            'النوع': inv.type,
-            'العميل': inv.customerInfo?.name || 'بيع مباشر',
-            'إجمالي الفاتورة': inv.total,
-            'الحالة': inv.status,
-            'وسيلة الدفع': inv.paymentMethod,
-            'بواسطة': inv.username
-        }));
-    } else {
-        fileName = `مصروفات_${dateRangeText}`;
-        const filteredExp = expenses.filter(exp => (dateRange === 'all' || new Date(exp.date) >= new Date(new Date().setDate(new Date().getDate() - parseInt(dateRange)))));
-        data = filteredExp.map(exp => ({
-            'التاريخ': new Date(exp.date).toLocaleString('ar-EG'),
-            'الوصف': exp.description,
-            'الفئة': exp.category,
-            'المبلغ': exp.amount,
-            'المستخدم': exp.username,
-            'الحالة': exp.status
-        }));
-    }
-    
-    exportToExcel(data, fileName);
   };
 
   useEffect(() => {
@@ -405,18 +356,9 @@ const DashboardView: React.FC<{
               <span className="material-symbols-outlined text-indigo-600 text-lg">print</span>
               <span className="whitespace-nowrap">طباعة المبيعات</span>
           </button>
-          <button onClick={() => handleExportExcel('sales')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all text-slate-700 font-medium text-sm" title="تصدير المبيعات لملف Excel">
-              <span className="material-symbols-outlined text-green-600 text-lg">description</span>
-              <span className="whitespace-nowrap">تصدير مبيعات Excel</span>
-          </button>
-          <div className="w-full sm:w-px h-px sm:h-8 bg-slate-200 mx-2 hidden sm:block"></div>
           <button onClick={() => handlePrint('expenses')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all text-slate-700 font-medium text-sm" title="طباعة تقرير بجميع المصروفات المسجلة للفترة المختارة">
               <span className="material-symbols-outlined text-red-600 text-lg">print</span>
               <span className="whitespace-nowrap">طباعة المصروفات</span>
-          </button>
-          <button onClick={() => handleExportExcel('expenses')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all text-slate-700 font-medium text-sm" title="تصدير المصروفات لملف Excel">
-              <span className="material-symbols-outlined text-green-600 text-lg">description</span>
-              <span className="whitespace-nowrap">تصدير مصروفات Excel</span>
           </button>
       </div>
 
@@ -435,7 +377,7 @@ const DashboardView: React.FC<{
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-500">pie_chart</span>
-                الأصناف الأكثر مبيعاً (صافي الإيرادات)
+                الأصناف الأكثر مبيعاً ({dateRangeText})
             </h3>
             <div className="relative h-64"><canvas ref={topProductsChartRef}></canvas></div>
           </div>

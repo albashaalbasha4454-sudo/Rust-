@@ -28,9 +28,8 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
     window.print();
   };
 
-  const isReturn = invoice.type === 'return';
-  const subtotal = invoice.items.reduce((sum, item) => sum + item.price, 0) * (isReturn ? -1 : 1);
-  const totalDiscount = invoice.items.reduce((sum, item) => sum + (item.discount || 0), 0) * (isReturn ? -1 : 1);
+  const subtotal = invoice.items.reduce((sum, item) => sum + item.price, 0);
+  const totalDiscount = invoice.items.reduce((sum, item) => sum + (item.discount || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 p-4 sm:p-8 overflow-y-auto print:p-0 print:bg-white">
@@ -42,7 +41,6 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
             <div className="text-center mt-4">
                 <h1 className="text-4xl font-black text-dark-800">مطابخ الشرق</h1>
                 <p className="text-brand-600 font-medium tracking-widest uppercase">East Food Restaurant</p>
-                {isReturn && <div className="mt-2 text-red-600 font-bold border-2 border-red-600 px-4 py-1 rounded-lg inline-block">فاتورة مرتجع</div>}
             </div>
           </div>
 
@@ -97,10 +95,10 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                     {invoice.items.map((item, index) => (
                         <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid`}>
                             <td className="p-3 text-dark-400 text-xs">{index + 1}</td>
-                            <td className="p-3 font-bold text-dark-800">{isReturn ? `إرجاع: ${item.productName}` : item.productName}</td>
-                            <td className="p-3 text-left text-dark-700">{(item.price * (isReturn ? -1 : 1)).toFixed(2)}</td>
-                            <td className="p-3 text-left text-red-500">{((item.discount || 0) * (isReturn ? -1 : 1)).toFixed(2)}</td>
-                            <td className="p-3 text-left font-bold text-dark-800">{((item.price - (item.discount || 0)) * (isReturn ? -1 : 1)).toFixed(2)}</td>
+                            <td className="p-3 font-bold text-dark-800">{item.productName}</td>
+                            <td className="p-3 text-left text-dark-700">{item.price.toFixed(2)}</td>
+                            <td className="p-3 text-left text-red-500">{(item.discount || 0).toFixed(2)}</td>
+                            <td className="p-3 text-left font-bold text-dark-800">{(item.price - (item.discount || 0)).toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>

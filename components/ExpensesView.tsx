@@ -3,7 +3,6 @@ import type { Expense, FinancialAccount } from '../types';
 import Modal from './Modal';
 import InputField from './common/InputField';
 import Pagination from './common/Pagination';
-import { exportToExcel } from '../lib/excelExport';
 
 interface ExpensesViewProps {
   expenses: Expense[];
@@ -32,18 +31,6 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
     setIsModalOpen(false);
   };
 
-  const handleExportExcel = () => {
-    const data = sortedExpenses.map(exp => ({
-        'التاريخ': new Date(exp.date).toLocaleDateString('ar-EG'),
-        'البيان': exp.description,
-        'المبلغ': exp.amount,
-        'التصنيف': exp.category || '-',
-        'حساب الدفع': accounts.find(a => a.id === exp.accountId)?.name || 'غير معروف',
-        'المستخدم': exp.username
-    }));
-    exportToExcel(data, `سجل_المصروفات_${new Date().toISOString().split('T')[0]}`);
-  };
-
   return (
     <div className="p-4 sm:p-6">
       <div className="bg-white shadow-lg rounded-xl">
@@ -52,19 +39,10 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
               <h2 className="text-2xl font-bold text-slate-800">سجل المصروفات</h2>
               <p className="text-sm text-slate-500 mt-1">عرض وتصفح جميع المصروفات المسجلة.</p>
             </div>
-            <div className="flex gap-2">
-                <button 
-                    onClick={handleExportExcel}
-                    className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium border border-emerald-200"
-                >
-                    <span className="material-symbols-outlined text-lg">description</span>
-                    تصدير لـ Excel
-                </button>
-                <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm">
-                   <span className="material-symbols-outlined">add</span>
-                   تسجيل مصروف
-                </button>
-            </div>
+            <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+               <span className="material-symbols-outlined">add</span>
+               تسجيل مصروف
+            </button>
         </div>
         <div className="space-y-4 md:space-y-0">
             {/* Desktop Header */}
