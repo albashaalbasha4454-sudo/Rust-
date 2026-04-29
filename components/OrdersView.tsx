@@ -254,7 +254,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
                                     <ul className="list-disc list-inside space-y-1">
                                         {inv.items.map(item => (
                                             <li key={item.productId} className="whitespace-nowrap">
-                                                {item.productName}
+                                                {item.productName} <span className="text-indigo-600 font-bold">×{item.quantity || 1}</span>
                                                 {item.notes && <span className="text-indigo-500 text-[10px] mr-2 italic">[{item.notes}]</span>}
                                             </li>
                                         ))}

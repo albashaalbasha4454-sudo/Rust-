@@ -1,23 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import type { Invoice, User, TillCloseout } from '../types';
+import type { Invoice, User, TillCloseout, Expense } from '../types';
 import Modal from './Modal';
 import InputField from './common/InputField';
 
 interface CloseTillModalProps {
   invoices: Invoice[];
+  expenses: Expense[];
   users: User[];
   currentUser: User;
   onClose: () => void;
   onConfirmCloseout: (data: Omit<TillCloseout, 'id'>) => void;
 }
 
-const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, currentUser, onClose, onConfirmCloseout }) => {
+const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, expenses, users, currentUser, onClose, onConfirmCloseout }) => {
 
   const [selectedUser, setSelectedUser] = useState<User>(currentUser);
   const [countedCash, setCountedCash] = useState('');
   const [notes, setNotes] = useState('');
 
-  const { todaysSales, todaysReturns, totalSales, totalReturns, netCashExpected, todaysInvoiceIds } = useMemo(() => {
+  const { cashSales, cardSales, creditSales, totalReturns, totalExpenses, netCashExpected, todaysInvoiceIds } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -30,20 +31,34 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
                invDate < tomorrow;
     });
 
-    const todaysSales = todaysUserInvoices.filter(inv => 
+    const todaysUserExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return exp.username === selectedUser.username &&
+               expDate >= today &&
+               expDate < tomorrow &&
+               exp.status !== 'reversed';
+    });
+
+    const sales = todaysUserInvoices.filter(inv => 
         ['sale', 'dine_in', 'takeaway'].includes(inv.type) || 
         (['delivery', 'reservation'].includes(inv.type) && inv.status === 'completed' && inv.paymentStatus === 'paid')
     );
-    const todaysReturns = todaysUserInvoices.filter(inv => inv.type === 'return');
+    const returns = todaysUserInvoices.filter(inv => inv.type === 'return');
     
-    const totalSales = todaysSales.reduce((sum, inv) => sum + inv.total, 0);
-    const totalReturns = todaysReturns.reduce((sum, inv) => sum + inv.total, 0); // is negative
+    const cashSales = sales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
+    const cardSales = sales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+    const creditSales = sales.filter(s => s.paymentMethod === 'credit').reduce((sum, s) => sum + s.total, 0);
+    
+    const totalReturns = returns.reduce((sum, inv) => sum + inv.total, 0); // usually negative item, so we add it
+    const mathReturns = Math.abs(totalReturns);
 
-    const netCashExpected = totalSales + totalReturns;
+    const totalExpenses = todaysUserExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+    const netCashExpected = cashSales - mathReturns - totalExpenses;
     const todaysInvoiceIds = todaysUserInvoices.map(inv => inv.id);
 
-    return { todaysSales, todaysReturns, totalSales, totalReturns: Math.abs(totalReturns), netCashExpected, todaysInvoiceIds };
-  }, [invoices, selectedUser]);
+    return { cashSales, cardSales, creditSales, totalReturns: mathReturns, totalExpenses, netCashExpected, todaysInvoiceIds };
+  }, [invoices, expenses, selectedUser]);
   
   const difference = useMemo(() => {
       const counted = parseFloat(countedCash);
@@ -64,7 +79,7 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
         closedByUserId: selectedUser.id,
         closedByUsername: selectedUser.username,
         forDate: new Date().toISOString().split('T')[0],
-        totalSales,
+        totalSales: cashSales + cardSales + creditSales,
         totalReturns,
         netCashExpected,
         countedCash: counted,
@@ -110,13 +125,16 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
                 </p>
             )}
             
-            {currentUser.role === 'admin' && (
-              <div className="space-y-3 text-base mb-6">
-                  <SummaryRow label="إجمالي المبيعات النقدية" value={totalSales} color="text-green-700" />
-                  <SummaryRow label="إجمالي المرتجعات النقدية" value={totalReturns} color="text-red-700" />
-                  <SummaryRow label="صافي النقد المتوقع في الصندوق" value={netCashExpected} color="text-indigo-700" />
-              </div>
-            )}
+            <div className="space-y-2 text-sm mb-6">
+                <SummaryRow label="إجمالي مبيعات الكاش" value={cashSales} color="text-green-700" />
+                <SummaryRow label="إجمالي مبيعات الشبكة" value={cardSales} color="text-indigo-600 font-normal" />
+                {creditSales > 0 && <SummaryRow label="إجمالي المبيعات الآجلة" value={creditSales} color="text-amber-600 font-normal" />}
+                <SummaryRow label="إجمالي المرتجعات النقدية" value={totalReturns} color="text-red-600 font-normal" />
+                <SummaryRow label="إجمالي المصروفات" value={totalExpenses} color="text-red-500 font-normal" />
+                <div className="border-t border-slate-200 mt-2 pt-2">
+                    <SummaryRow label="صافي النقد المتوقع في الصندوق" value={netCashExpected} color="text-indigo-800 bg-indigo-50" />
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                 <InputField 

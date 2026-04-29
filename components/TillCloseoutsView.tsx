@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { TillCloseout } from '../types';
 import Pagination from './common/Pagination';
+import { exportToExcel } from '../lib/excelExport';
 
 interface TillCloseoutsViewProps {
   tillCloseouts: TillCloseout[];
@@ -23,12 +24,36 @@ const TillCloseoutsView: React.FC<TillCloseoutsViewProps> = ({ tillCloseouts }) 
   
   const totalPages = Math.ceil(sortedCloseouts.length / ITEMS_PER_PAGE);
 
+  const handleExportExcel = () => {
+    const data = sortedCloseouts.map(c => ({
+        'التاريخ': new Date(c.date).toLocaleString('ar-EG'),
+        'اسم الكاشير': c.closedByUsername,
+        'إجمالي المبيعات': c.totalSales,
+        'إجمالي المرتجعات': c.totalReturns,
+        'المبلغ المتوقع': c.netCashExpected,
+        'المبلغ المعدود': c.countedCash,
+        'الفارق': c.difference,
+        'عدد الفواتير': c.invoiceIds.length,
+        'ملاحظات': c.notes || '-'
+    }));
+    exportToExcel(data, `إغلاق_الصناديق_${new Date().toISOString().split('T')[0]}`);
+  };
+
   return (
     <div className="p-4 sm:p-6">
       <div className="bg-white shadow-lg rounded-xl">
-        <div className="p-6 border-b border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-800">تقارير إغلاق الصناديق</h2>
-            <p className="text-sm text-slate-500 mt-1">عرض ومراجعة جميع عمليات إغلاق الصناديق اليومية.</p>
+        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+            <div>
+                <h2 className="text-2xl font-bold text-slate-800">تقارير إغلاق الصناديق</h2>
+                <p className="text-sm text-slate-500 mt-1">عرض ومراجعة جميع عمليات إغلاق الصناديق اليومية.</p>
+            </div>
+            <button 
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium border border-emerald-200"
+            >
+                <span className="material-symbols-outlined text-lg">description</span>
+                تصدير لـ Excel
+            </button>
         </div>
 
         <div className="overflow-x-auto">

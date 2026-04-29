@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ReturnRequest } from '../types';
+import { exportToExcel } from '../lib/excelExport';
 
 interface ReturnRequestsViewProps {
   requests: ReturnRequest[];
@@ -10,19 +11,33 @@ interface ReturnRequestsViewProps {
 const ReturnRequestsView: React.FC<ReturnRequestsViewProps> = ({ requests, approveRequest, rejectRequest }) => {
 
   const getStatusBadge = (status: ReturnRequest['status']) => {
-    switch (status) {
-      case 'pending':
-        return <span className="bg-yellow-200 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full">معلق</span>;
-      case 'approved':
-        return <span className="bg-green-200 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">مقبول</span>;
-      case 'rejected':
-        return <span className="bg-red-200 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">مرفوض</span>;
-    }
+// ... existing switch ...
+  };
+
+  const handleExportExcel = () => {
+    const data = requests.map(req => ({
+        'تاريخ الطلب': new Date(req.requestDate).toLocaleString('ar-EG'),
+        'رقم الفاتورة الأصلية': req.originalInvoiceId,
+        'مقدم الطلب': req.requestedBy,
+        'الحالة': req.status === 'pending' ? 'معلق' : (req.status === 'approved' ? 'مقبول' : 'مرفوض'),
+        'معالج بواسطة': req.processedBy || '-',
+        'تاريخ المعالجة': req.processedDate ? new Date(req.processedDate).toLocaleString('ar-EG') : '-'
+    }));
+    exportToExcel(data, `طلبات_الإرجاع_${new Date().toISOString().split('T')[0]}`);
   };
 
   return (
     <div className="p-4 md:p-6">
-      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">طلبات الإرجاع</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">طلبات الإرجاع</h2>
+        <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium border border-emerald-200"
+        >
+            <span className="material-symbols-outlined text-lg">description</span>
+            تصدير لـ Excel
+        </button>
+      </div>
       
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="overflow-x-auto">

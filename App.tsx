@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import useAuth from './hooks/useAuth';
-import { initialUsers, initialProducts, initialCustomers, initialAccounts } from './initialData';
+import { initialUsers, initialProducts, initialCustomers, initialAccounts, initialModifierGroups } from './initialData';
 
-import type { Product, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout } from './types';
+import type { Product, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout, Shift, AuditLog, ModifierGroup, ImportedShiftRecord, PaymentMethod } from './types';
 
 import LoginView from './components/LoginView';
 import Header from './components/Header';
@@ -15,7 +15,6 @@ import SettingsView from './components/SettingsView';
 import UsersView from './components/UsersView';
 import ReturnRequestsView from './components/ReturnRequestsView';
 import ExpensesView from './components/ExpensesView';
-import AIChatAssistant from './components/AIChatAssistant';
 import CustomersView from './components/CustomersView';
 import FinanceView from './components/FinanceView';
 import OrdersView from './components/OrdersView';
@@ -26,6 +25,7 @@ import TillCloseoutsView from './components/TillCloseoutsView';
 import CashierToolsView from './components/CashierToolsView';
 import ReportsView from './components/ReportsView';
 import FinancialSummaryView from './components/FinancialSummaryView';
+import AuditLogView from './components/AuditLogView';
 
 
 const simpleHash = (password: string, salt: string) => `hashed_${password}_with_${salt}`;
@@ -36,6 +36,7 @@ const App: React.FC = () => {
     const { currentUser, login, logout } = useAuth(users);
 
     const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
+    const [modifierGroups, setModifierGroups] = useLocalStorage<ModifierGroup[]>('modifierGroups', initialModifierGroups);
     const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
     const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', []);
     const [returnRequests, setReturnRequests] = useLocalStorage<ReturnRequest[]>('returnRequests', []);
@@ -43,7 +44,74 @@ const App: React.FC = () => {
     const [accounts, setAccounts] = useLocalStorage<FinancialAccount[]>('financialAccounts', initialAccounts);
     const [transactions, setTransactions] = useLocalStorage<FinancialTransaction[]>('financialTransactions', []);
     const [budgets, setBudgets] = useLocalStorage<Budget[]>('budgets', []);
+    const [shifts, setShifts] = useLocalStorage<Shift[]>('shifts', []);
+    const [auditLogs, setAuditLogs] = useLocalStorage<AuditLog[]>('auditLogs', []);
+    const [importedShifts, setImportedShifts] = useLocalStorage<ImportedShiftRecord[]>('importedShifts', []);
     const [tillCloseouts, setTillCloseouts] = useLocalStorage<TillCloseout[]>('tillCloseouts', []);
+    const [configVersion, setConfigVersion] = useLocalStorage<string>('configVersion', '1.0.0');
+    
+    // Device ID handling
+    const [deviceId] = useLocalStorage<string>('deviceId', `DEV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+
+    const activeShift = useMemo(() => {
+        if (!currentUser) return null;
+        return shifts.find(s => s.status === 'open' && s.userId === currentUser.id);
+    }, [shifts, currentUser]);
+
+    const addAuditLog = useCallback((action: AuditLog['action'], entityType: AuditLog['entityType'], entityId: string, description: string) => {
+        if (!currentUser) return;
+        const newLog: AuditLog = {
+            id: `log-${Date.now()}`,
+            date: new Date().toISOString(),
+            userId: currentUser.id,
+            username: currentUser.username,
+            userRole: currentUser.role,
+            deviceId,
+            action,
+            entityType,
+            entityId,
+            description
+        };
+        setAuditLogs(prev => [newLog, ...prev]);
+    }, [currentUser, deviceId, setAuditLogs]);
+
+    const openShift = (openingCash: number) => {
+        if (!currentUser) return;
+        const shiftNumber = `SHIFT-${new Date().toISOString().split('T')[0]}-${shifts.length + 1}`;
+        const newShift: Shift = {
+            id: `shift-${Date.now()}`,
+            number: shiftNumber,
+            startTime: new Date().toISOString(),
+            userId: currentUser.id,
+            username: currentUser.username,
+            deviceId,
+            status: 'open',
+            openingCash,
+            cashSales: 0,
+            cardSales: 0,
+            creditSales: 0,
+            cashReturns: 0,
+            cashExpenses: 0,
+            expectedCash: openingCash,
+            configVersion
+        };
+        setShifts(prev => [...prev, newShift]);
+        addAuditLog('OPEN_SHIFT', 'shift', newShift.id, `فتح وردية جديدة برصيد: ${openingCash}`);
+    };
+
+    const closeShift = (actualCash: number, notes: string) => {
+        if (!activeShift) return;
+        const updatedShift: Shift = {
+            ...activeShift,
+            status: 'closed',
+            endTime: new Date().toISOString(),
+            actualCash,
+            closingNotes: notes,
+            difference: actualCash - (activeShift.expectedCash || 0)
+        };
+        setShifts(prev => prev.map(s => s.id === updatedShift.id ? updatedShift : s));
+        addAuditLog('CLOSE_SHIFT', 'shift', updatedShift.id, `إغلاق الوردية بفرق: ${updatedShift.difference}`);
+    };
     
     const [currentView, setCurrentView] = useState(currentUser?.role === 'admin' ? 'dashboard' : 'pos');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -59,7 +127,7 @@ const App: React.FC = () => {
                 const snapshot = {
                     users, products, invoices, expenses, returnRequests,
                     customers,
-                    accounts, transactions, budgets, tillCloseouts,
+                    accounts, transactions, budgets,
                     timestamp: new Date().toISOString()
                 };
                 localStorage.setItem('auto_backup_snapshot', JSON.stringify(snapshot));
@@ -70,7 +138,7 @@ const App: React.FC = () => {
 
         const interval = setInterval(backupData, 5 * 60 * 1000); // Every 5 minutes
         return () => clearInterval(interval);
-    }, [users, products, invoices, expenses, returnRequests, customers, accounts, transactions, budgets, tillCloseouts]);
+    }, [users, products, invoices, expenses, returnRequests, customers, accounts, transactions, budgets]);
 
     // --- COMPUTED VALUES ---
     const accountBalances = useMemo(() => {
@@ -98,6 +166,43 @@ const App: React.FC = () => {
     }, [setTransactions]);
 
     // --- CORE BUSINESS LOGIC ---
+    const upsertCustomerFromInvoice = (invoice: Invoice) => {
+        if (!invoice.customerInfo?.phone) return;
+        
+        const phone = invoice.customerInfo.phone;
+        const name = invoice.customerInfo.name;
+        const address = invoice.customerInfo.address;
+        
+        setCustomers(prev => {
+            const existingIndex = prev.findIndex(c => c.phone === phone);
+            if (existingIndex > -1) {
+                const existing = prev[existingIndex];
+                const updated = [...prev];
+                updated[existingIndex] = {
+                    ...existing,
+                    name: name || existing.name,
+                    address: address || existing.address,
+                    lastOrderAt: invoice.date,
+                    totalOrders: (existing.totalOrders || 0) + (invoice.type === 'return' ? 0 : 1),
+                    totalSpent: (existing.totalSpent || 0) + (invoice.type === 'return' ? -invoice.total : invoice.total)
+                };
+                return updated;
+            } else {
+                const newCustomer: Customer = {
+                    id: `cust-${Date.now()}`,
+                    name: name || 'عميل جديد',
+                    phone: phone,
+                    address: address,
+                    createdAt: invoice.date,
+                    lastOrderAt: invoice.date,
+                    totalOrders: 1,
+                    totalSpent: invoice.total
+                };
+                return [...prev, newCustomer];
+            }
+        });
+    };
+
     // Products
     const addProduct = (product: Omit<Product, 'id'>) => {
         const newProduct = { ...product, id: `prod-${Date.now()}` };
@@ -146,42 +251,73 @@ const App: React.FC = () => {
     };
 
 
-    // Orders (Sales, Delivery, Reservations)
-    const createOrder = (type: OrderType, items: InvoiceItem[], customerInfo?: Invoice['customerInfo'], deliveryFee: number = 0, source?: Invoice['source'], notes?: string) => {
+    const createOrder = (type: OrderType, items: InvoiceItem[], customerInfo?: Invoice['customerInfo'], deliveryFee: number = 0, source?: Invoice['source'], notes?: string, paymentMethod: PaymentMethod = 'cash') => {
         if (!currentUser) throw new Error("No user is logged in.");
 
-        const total = items.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0) + deliveryFee;
+        const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+        const total = subtotal + deliveryFee;
+        const totalCost = items.reduce((sum, item) => sum + (item.cost || 0) * (item.quantity || 1), 0);
+        const totalProfit = type === 'return' ? - (total - totalCost) : (total - totalCost);
         
-        const isImmediate = type === 'sale';
-        const isRestaurantOrder = type === 'dine_in' || type === 'takeaway';
+        const isImmediate = type === 'sale' || type === 'dine_in' || type === 'takeaway' || type === 'return';
+        const saleSource: Invoice['saleSource'] = currentUser.role === 'admin' 
+            ? 'admin_direct' 
+            : 'cashier_shift';
 
         const newOrder: Invoice = {
             id: `${type.slice(0,3)}-${Date.now()}`,
             date: new Date().toISOString(),
             type,
             items: items.map(item => ({...item})),
+            subtotal,
+            discount: 0,
+            tax: 0,
             total,
+            totalProfit,
             customerInfo,
             deliveryFee,
             source,
             notes,
-            status: (isImmediate) ? 'completed' : 'pending',
-            paymentStatus: (isImmediate || isRestaurantOrder) ? 'paid' : 'unpaid',
-            processedBy: currentUser.username,
+            status: 'completed',
+            paymentStatus: isImmediate ? 'paid' : 'unpaid',
+            paymentMethod,
+            userId: currentUser.id,
+            username: currentUser.username,
+            userRole: currentUser.role,
+            deviceId,
+            saleSource
         };
         
+        if (paymentMethod !== 'mixed' && paymentMethod !== 'credit') {
+            newOrder.payments = [{
+                id: `pay-${Date.now()}`,
+                invoiceId: newOrder.id,
+                deviceId,
+                method: paymentMethod as 'cash' | 'card',
+                amount: total,
+                date: newOrder.date,
+                userId: currentUser.id,
+                username: currentUser.username,
+                userRole: currentUser.role
+            }];
+        }
+
         setInvoices(prev => [...prev, newOrder]);
         
-        // Save customer if new
-
-        if (isImmediate || isRestaurantOrder) { // Quick sale or restaurant order is paid immediately
+        // Auto-upsert customer if for delivery or has customer phone
+        if (newOrder.customerInfo?.phone) {
+            upsertCustomerFromInvoice(newOrder);
+        }
+        
+        if (isImmediate) {
             const targetAccountId = 'cash-default';
 
             addFinancialTransaction({
-                description: `إيراد من فاتورة ${type === 'dine_in' ? 'صالة' : type === 'takeaway' ? 'سفري' : 'بيع'} رقم ${newOrder.id.substring(0,8)} (بواسطة ${currentUser.username})`,
+                description: `إيراد من فاتورة ${type} رقم ${newOrder.id.substring(0,8)}`,
                 amount: newOrder.total,
-                type: 'sale_income',
-                toAccountId: targetAccountId,
+                type: type === 'return' ? 'return_refund' : 'sale_income',
+                toAccountId: type === 'return' ? undefined : targetAccountId,
+                fromAccountId: type === 'return' ? targetAccountId : undefined,
                 relatedInvoiceId: newOrder.id
             });
             newOrder.paidDate = new Date().toISOString();
@@ -189,10 +325,13 @@ const App: React.FC = () => {
         return newOrder;
     };
 
-    const onCompleteSale = (items: InvoiceItem[], options?: { customerInfo?: Invoice['customerInfo'], notes?: string, type?: OrderType }) => {
-        if (!window.confirm('هل أنت متأكد من إتمام عملية البيع؟')) return;
-        const order = createOrder(options?.type || 'sale', items, options?.customerInfo, 0, undefined, options?.notes);
-        if (order) setInvoiceToPrint(order);
+    const onCompleteSale = (items: InvoiceItem[], options?: { customerInfo?: Invoice['customerInfo'], notes?: string, type?: OrderType, paymentMethod?: PaymentMethod }) => {
+        if (!window.confirm('هل أنت متأكد من إتمام العملية؟')) return;
+        const order = createOrder(options?.type || 'sale', items, options?.customerInfo, 0, undefined, options?.notes, options?.paymentMethod || 'cash');
+        if (order) {
+            setInvoiceToPrint(order);
+            addAuditLog(order.type === 'return' ? 'CREATE_RETURN' : 'CREATE_INVOICE', 'invoice', order.id, `إنشاء فاتورة بقيمة: ${order.total}`);
+        }
     };
 
     const onCreateDeliveryOrder = (cart: InvoiceItem[], customerInfo: any, deliveryFee: number, source: any) => {
@@ -259,29 +398,16 @@ const App: React.FC = () => {
     const processReturn = (originalInvoiceId: string, returnItems: InvoiceItem[]) => {
         if (!currentUser) return;
         if (!window.confirm('هل أنت متأكد من إتمام عملية الإرجاع؟ سيتم استرداد المبلغ.')) return;
-        const total = returnItems.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0);
-        const newReturnInvoice: Invoice = {
-            id: `ret-${Date.now()}`,
-            date: new Date().toISOString(),
-            type: 'return',
-            items: returnItems,
-            total: -total,
-            status: 'completed',
-            paymentStatus: 'paid', // Refund is considered a 'paid' transaction
-            processedBy: currentUser.username,
-        };
-        setInvoices(prev => [...prev, newReturnInvoice]);
         
-        const sourceAccountId = 'cash-default';
-
-        addFinancialTransaction({
-            description: `مرتجع من فاتورة ${originalInvoiceId.substring(0, 8)} (بواسطة ${currentUser.username})`,
-            amount: total,
-            type: 'return_refund',
-            fromAccountId: sourceAccountId,
-            relatedInvoiceId: newReturnInvoice.id,
-            category: 'مرتجعات'
-        });
+        const returnOrder = createOrder('return', returnItems, undefined, 0, undefined, `مرتجع من فاتورة ${originalInvoiceId.substring(0, 8)}`);
+        
+        if (returnOrder) {
+            const total = Math.abs(returnOrder.total);
+            const sourceAccountId = 'cash-default';
+            // Financial transaction is already added inside createOrder logic? 
+            // Wait, createOrder in App.tsx line 297 adds income/return_refund.
+            // So we don't need to add it again here.
+        }
     };
 
     const sendReturnRequest = (originalInvoice: Invoice, returnItems: InvoiceItem[]) => {
@@ -318,11 +444,27 @@ const App: React.FC = () => {
         setTillCloseouts(prev => [...prev, { ...data, id: `closeout-${Date.now()}` }]);
     };
 
-    // Expenses
-    const addExpense = (expense: Omit<Expense, 'id'>) => {
-        if (!window.confirm(`هل أنت متأكد من تسجيل مصروف بمبلغ ${expense.amount}؟`)) return;
-        const newExpense = { ...expense, id: `exp-${Date.now()}` };
+    const addExpense = (expenseData: Partial<Expense>) => {
+        if (!currentUser) return;
+        if (!window.confirm(`هل أنت متأكد من تسجيل مصروف بمبلغ ${expenseData.amount}؟`)) return;
+        
+        const newExpense: Expense = {
+            id: `exp-${Date.now()}`,
+            amount: expenseData.amount || 0,
+            category: expenseData.category || 'عام',
+            description: expenseData.description || '',
+            date: new Date().toISOString(),
+            userId: currentUser.id,
+            username: currentUser.username,
+            userRole: currentUser.role,
+            deviceId,
+            paymentMethod: expenseData.paymentMethod || 'cash',
+            affectsCash: expenseData.affectsCash ?? true,
+            status: 'active',
+            accountId: expenseData.accountId || 'cash-default'
+        };
         setExpenses(prev => [...prev, newExpense]);
+        
         addFinancialTransaction({
             description: newExpense.description,
             amount: newExpense.amount,
@@ -330,21 +472,33 @@ const App: React.FC = () => {
             fromAccountId: newExpense.accountId,
             category: newExpense.category
         });
+        addAuditLog('CREATE_EXPENSE', 'expense', newExpense.id, `إضافة مصروف بقيمة: ${newExpense.amount}`);
     };
 
-    const deleteExpense = (id: string) => {
-        const expenseToDelete = expenses.find(e => e.id === id);
-        if (expenseToDelete) {
-            if (!window.confirm('هل أنت متأكد من إلغاء هذا المصروف؟ سيتم استرداد المبلغ للحساب.')) return;
-            setExpenses(prev => prev.filter(e => e.id !== id));
-            addFinancialTransaction({
-                description: `إلغاء المصروف: ${expenseToDelete.description}`,
-                amount: expenseToDelete.amount,
-                type: 'expense_reversal',
-                toAccountId: expenseToDelete.accountId,
-                category: expenseToDelete.category
-            });
-        }
+    const reverseExpense = (expenseId: string, reason: string) => {
+        if (!currentUser || currentUser.role !== 'admin') return;
+        setExpenses(prev => prev.map(exp => {
+            if (exp.id === expenseId) {
+                const reversedExp: Expense = {
+                    ...exp,
+                    status: 'reversed',
+                    reversedBy: currentUser.username,
+                    reversedAt: new Date().toISOString(),
+                    reversalReason: reason
+                };
+                
+                addFinancialTransaction({
+                    description: `إلغاء المصروف: ${exp.description} بسبب ${reason}`,
+                    amount: exp.amount,
+                    type: 'expense_reversal',
+                    toAccountId: exp.accountId,
+                    category: exp.category
+                });
+                addAuditLog('REVERSE_EXPENSE', 'expense', exp.id, `عكس مصروف بسبب: ${reason}`);
+                return reversedExp;
+            }
+            return exp;
+        }));
     };
 
     // Financial Accounts
@@ -406,17 +560,37 @@ const App: React.FC = () => {
         dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
         reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
         financialSummary: { element: <FinancialSummaryView invoices={invoices} expenses={expenses} transactions={transactions} accountBalances={accountBalances} />, label: "الملخص المالي", icon: "summarize", roles: ['admin'] },
-        pos: { element: <POSView products={products} customers={customers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
+        pos: { element: <POSView products={products} modifierGroups={modifierGroups} customers={customers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} activeShift={activeShift} openShift={openShift} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
         orders: { element: <OrdersView invoices={invoices} users={users} onUpdateStatus={updateOrderStatus} onConvertToSale={onConvertToSale} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الطلبات", icon: "receipt_long", roles: ['admin', 'cashier'] },
         invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
-        products: { element: <ProductsView products={products} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
+        products: { element: <ProductsView products={products} modifierGroups={modifierGroups} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
         returnRequests: { element: <ReturnRequestsView requests={returnRequests} approveRequest={approveRequest} rejectRequest={rejectRequest} />, label: "طلبات الإرجاع", icon: "rule", roles: ['admin'] },
-        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} />, label: "المصروفات", icon: "payments", roles: ['admin'] },
+        expenses: { element: <ExpensesView expenses={expenses} accounts={accounts} addExpense={addExpense} reverseExpense={reverseExpense} isAdmin={currentUser.role === 'admin'} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
         customers: { element: <CustomersView customers={customers} addCustomer={addCustomer} updateCustomer={updateCustomer} deleteCustomer={deleteCustomer} />, label: "العملاء", icon: "groups", roles: ['admin'] },
-        finance: { element: <FinanceView accounts={accounts} accountBalances={accountBalances} transactions={transactions} budgets={budgets} onSaveAccount={onSaveAccount} onSaveTransaction={addFinancialTransaction} onSaveBudget={(b) => setBudgets(p=>[...p, {...b, id: `budget-${Date.now()}`}])} />, label: "الخزينة", icon: "account_balance", roles: ['admin'] },
-        tillCloseouts: { element: <TillCloseoutsView tillCloseouts={tillCloseouts} />, label: "تقارير الصناديق", icon: "archive", roles: ['admin'] },
+        finance: { element: <FinanceView 
+            accounts={accounts} 
+            accountBalances={accountBalances} 
+            transactions={transactions} 
+            budgets={budgets} 
+            shifts={shifts}
+            importedShifts={importedShifts}
+            auditLogs={auditLogs}
+            deviceId={deviceId}
+            currentUser={currentUser}
+            onSaveAccount={onSaveAccount} 
+            onSaveTransaction={addFinancialTransaction} 
+            onSaveBudget={(b) => setBudgets(p=>[...p, {...b, id: `budget-${Date.now()}`}])} 
+            setInvoices={setInvoices}
+            setExpenses={setExpenses}
+            setShifts={setShifts}
+            setImportedShifts={setImportedShifts}
+            setProducts={setProducts}
+            setModifierGroups={setModifierGroups}
+            setConfigVersion={setConfigVersion}
+        />, label: "الخزينة والبيانات", icon: "account_balance", roles: ['admin'] },
+        tillCloseouts: { element: <TillCloseoutsView tillCloseouts={tillCloseouts} shifts={shifts} />, label: "أرشيف الورديات", icon: "archive", roles: ['admin'] },
         users: { element: <UsersView users={users} addUser={addUser} updateUser={updateUser} deleteUser={deleteUser} currentUser={currentUser} />, label: "المستخدمون", icon: "manage_accounts", roles: ['admin'] },
-        cashierTools: { element: <CashierToolsView currentUser={currentUser} />, label: "إدارة البيانات", icon: "database", roles: ['cashier'] },
+        auditLog: { element: <AuditLogView logs={auditLogs} />, label: "سجل النشاط", icon: "history", roles: ['admin'] },
         settings: { element: <SettingsView onUpdatePrices={updatePricesBatch} />, label: "الإعدادات", icon: "settings", roles: ['admin'] },
     };
 
@@ -431,7 +605,7 @@ const App: React.FC = () => {
         );
     };
     
-    const adminSidebarOrder = ['dashboard', 'reports', 'financialSummary', 'pos', 'orders', 'invoices', 'returnRequests', 'products', 'expenses', 'customers', 'finance', 'tillCloseouts', 'users', 'settings'];
+    const adminSidebarOrder = ['dashboard', 'reports', 'financialSummary', 'pos', 'orders', 'invoices', 'returnRequests', 'products', 'expenses', 'customers', 'finance', 'tillCloseouts', 'users', 'auditLog', 'settings'];
     const cashierSidebarOrder = ['pos', 'orders', 'invoices', 'cashierTools'];
 
     const sidebarOrder = currentUser.role === 'admin' ? adminSidebarOrder : cashierSidebarOrder;
@@ -467,26 +641,10 @@ const App: React.FC = () => {
                 </main>
             </div>
             {invoiceToPrint && <PrintInvoice invoice={invoiceToPrint} onClose={() => setInvoiceToPrint(null)} shopName={shopName} shopAddress={shopAddress} />}
-            {currentUser.role === 'admin' && 
-                <AIChatAssistant 
-                    products={products}
-                    invoices={invoices}
-                    expenses={expenses}
-                    customers={customers}
-                    addProduct={addProduct}
-                    updateProduct={updateProduct}
-                    deleteProduct={deleteProduct}
-                    addExpense={(exp) => addExpense({...exp, accountId: 'cash-default'})}
-                    deleteExpense={deleteExpense}
-                    addCustomer={addCustomer}
-                    updateCustomer={updateCustomer}
-                    deleteCustomer={deleteCustomer}
-                    onCompleteSale={onCompleteSale}
-                />
-            }
             {isCloseTillModalOpen && currentUser && (
                 <CloseTillModal
                     invoices={invoices}
+                    expenses={expenses}
                     users={users}
                     currentUser={currentUser}
                     onClose={() => setIsCloseTillModalOpen(false)}
