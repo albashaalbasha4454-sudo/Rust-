@@ -36,6 +36,9 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
 
   const filteredInvoices = useMemo(() => {
     return sortedInvoices.filter(inv => {
+      if (currentUser.role === 'cashier' && inv.processedBy !== currentUser.username) {
+        return false;
+      }
       const matchesSearch = inv.id.includes(searchTerm) || inv.customerInfo?.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'all' || inv.type === filterType;
       

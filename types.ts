@@ -7,15 +7,19 @@ export interface Product {
   price: number;
   salePrice?: number;
   discountPercent?: number;
+  cost?: number;
   image?: string;
+  availableModifiers?: {name: string, price: number}[];
 }
 
 export interface InvoiceItem {
   productId: string;
   productName: string;
   price: number;
+  cost?: number;
   discount?: number;
   notes?: string;
+  modifiers?: {name: string, price: number}[];
 }
 
 export interface Customer {
@@ -54,6 +58,7 @@ export interface Invoice {
   };
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod?: 'cash' | 'card';
   source?: 'in-store' | 'facebook' | 'instagram' | 'whatsapp' | 'other';
   deliveryFee?: number;
   processedBy?: string;
@@ -68,6 +73,8 @@ export interface Expense {
   amount: number;
   category?: string;
   accountId: string; // The account it was paid from
+  notes?: string;
+  processedBy?: string; // The cashier/admin who added it
 }
 
 export interface ReturnRequest {
@@ -122,6 +129,9 @@ export interface TillCloseout {
   forDate: string; // ISO string YYYY-MM-DD
   totalSales: number;
   totalReturns: number; // Positive number representing refund amount
+  totalCashSales?: number;
+  totalCardSales?: number;
+  totalExpenses?: number;
   netCashExpected: number;
   countedCash: number;
   difference: number;

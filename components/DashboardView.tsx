@@ -4,18 +4,23 @@ import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
 
-const StatCard = ({ title, value, icon, valueClassName, subtext }: { title: string, value: string | number, icon: string, valueClassName?: string, subtext?: string }) => {
-    const colorClass = valueClassName?.replace('text-', '') || 'slate-600';
+const StatCard = ({ title, value, icon, colorTheme, subtext }: { title: string, value: string | number, icon: string, colorTheme: 'emerald' | 'indigo' | 'red' | 'orange', subtext?: string }) => {
+    const themeStyles = {
+        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
+        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' },
+        red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100' },
+        orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
+    }[colorTheme];
     
     return (
-        <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-4 border border-slate-100 hover:shadow-md transition-shadow">
-            <div className={`p-4 rounded-xl bg-${colorClass} bg-opacity-10`}>
-                <span className={`material-symbols-outlined text-3xl text-${colorClass}`}>{icon}</span>
+        <div className={`bg-white p-6 rounded-[1.5rem] shadow-sm flex items-center gap-5 border border-slate-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`p-4 rounded-2xl ${themeStyles.bg} flex items-center justify-center`}>
+                <span className={`material-symbols-outlined text-3xl ${themeStyles.text}`}>{icon}</span>
             </div>
             <div>
-                <h3 className="text-slate-500 text-sm font-medium">{title}</h3>
-                <p className={`text-2xl font-bold text-${colorClass}`}>{value}</p>
-                {subtext && <p className="text-xs text-slate-400 mt-1">{subtext}</p>}
+                <h3 className="text-slate-500 text-sm font-semibold">{title}</h3>
+                <p className={`text-3xl font-black mt-1 ${themeStyles.text}`}>{value}</p>
+                {subtext && <p className="text-xs text-slate-400 mt-1 font-medium">{subtext}</p>}
             </div>
         </div>
     );
@@ -344,11 +349,11 @@ const DashboardView: React.FC<{
           </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
-        <StatCard title="صافي مبيعات اليوم" value={`${todayNetSales.toFixed(2)}`} icon="today" valueClassName="text-emerald-600" subtext="اليوم فقط" />
-        <StatCard title="صافي المبيعات" value={`${netSales.toFixed(2)}`} icon="monitoring" valueClassName="text-indigo-600" subtext={dateRangeText} />
-        <StatCard title="المصروفات" value={`${totalExpenses.toFixed(2)}`} icon="receipt_long" valueClassName="text-red-500" subtext={dateRangeText} />
-        <StatCard title="طلبات قيد الانتظار" value={pendingOrders} icon="pending_actions" valueClassName="text-orange-600" subtext="توصيل وحجوزات" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <StatCard title="صافي المبيعات اليوم" value={`$${todayNetSales.toFixed(2)}`} icon="today" colorTheme="emerald" subtext="اليوم فقط" />
+        <StatCard title="إجمالي المبيعات" value={`$${netSales.toFixed(2)}`} icon="monitoring" colorTheme="indigo" subtext={dateRangeText} />
+        <StatCard title="المصروفات" value={`$${totalExpenses.toFixed(2)}`} icon="receipt_long" colorTheme="red" subtext={dateRangeText} />
+        <StatCard title="طلبات قيد الانتظار" value={pendingOrders} icon="pending_actions" colorTheme="orange" subtext="توصيل وحجوزات" />
       </div>
 
       <div className="flex flex-wrap gap-2 sm:gap-3 mb-8">

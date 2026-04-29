@@ -1,23 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import type { Invoice, User, TillCloseout } from '../types';
+import type { Invoice, User, TillCloseout, Expense } from '../types';
 import Modal from './Modal';
 import InputField from './common/InputField';
 
 interface CloseTillModalProps {
   invoices: Invoice[];
+  expenses: Expense[];
   users: User[];
   currentUser: User;
   onClose: () => void;
   onConfirmCloseout: (data: Omit<TillCloseout, 'id'>) => void;
 }
 
-const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, currentUser, onClose, onConfirmCloseout }) => {
+const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, expenses, users, currentUser, onClose, onConfirmCloseout }) => {
 
   const [selectedUser, setSelectedUser] = useState<User>(currentUser);
   const [countedCash, setCountedCash] = useState('');
   const [notes, setNotes] = useState('');
 
-  const { todaysSales, todaysReturns, totalSales, totalReturns, netCashExpected, todaysInvoiceIds } = useMemo(() => {
+  const stats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -30,23 +31,35 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
                invDate < tomorrow;
     });
 
+    const todaysUserExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return exp.processedBy === selectedUser.username &&
+               expDate >= today &&
+               expDate < tomorrow;
+    });
+
     const todaysSales = todaysUserInvoices.filter(inv => inv.type === 'sale' || (inv.type === 'delivery' && inv.status === 'completed' && inv.paymentStatus === 'paid'));
     const todaysReturns = todaysUserInvoices.filter(inv => inv.type === 'return');
     
     const totalSales = todaysSales.reduce((sum, inv) => sum + inv.total, 0);
+    const totalCashSales = todaysSales.filter(inv => inv.paymentMethod === 'cash' || !inv.paymentMethod).reduce((sum, inv) => sum + inv.total, 0);
+    const totalCardSales = todaysSales.filter(inv => inv.paymentMethod === 'card').reduce((sum, inv) => sum + inv.total, 0);
+    
     const totalReturns = todaysReturns.reduce((sum, inv) => sum + inv.total, 0); // is negative
+    
+    const totalExpenses = todaysUserExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    const netCashExpected = totalSales + totalReturns;
+    const netCashExpected = totalCashSales + totalReturns - totalExpenses; // returns is negative
     const todaysInvoiceIds = todaysUserInvoices.map(inv => inv.id);
 
-    return { todaysSales, todaysReturns, totalSales, totalReturns: Math.abs(totalReturns), netCashExpected, todaysInvoiceIds };
-  }, [invoices, selectedUser]);
+    return { totalSales, totalCashSales, totalCardSales, totalReturns: Math.abs(totalReturns), totalExpenses, netCashExpected, todaysInvoiceIds };
+  }, [invoices, expenses, selectedUser]);
   
   const difference = useMemo(() => {
       const counted = parseFloat(countedCash);
       if (isNaN(counted)) return 0;
-      return counted - netCashExpected;
-  }, [countedCash, netCashExpected]);
+      return counted - stats.netCashExpected;
+  }, [countedCash, stats]);
 
 
   const handleConfirm = () => {
@@ -61,13 +74,16 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
         closedByUserId: selectedUser.id,
         closedByUsername: selectedUser.username,
         forDate: new Date().toISOString().split('T')[0],
-        totalSales,
-        totalReturns,
-        netCashExpected,
+        totalSales: stats.totalSales,
+        totalReturns: stats.totalReturns,
+        totalCashSales: stats.totalCashSales,
+        totalCardSales: stats.totalCardSales,
+        totalExpenses: stats.totalExpenses,
+        netCashExpected: stats.netCashExpected,
         countedCash: counted,
         difference,
         notes,
-        invoiceIds: todaysInvoiceIds
+        invoiceIds: stats.todaysInvoiceIds
     });
     alert(`تم حفظ تقرير الإغلاق بنجاح للمستخدم ${selectedUser.username}.`);
     onClose();
@@ -107,13 +123,14 @@ const CloseTillModal: React.FC<CloseTillModalProps> = ({ invoices, users, curren
                 </p>
             )}
             
-            {currentUser.role === 'admin' && (
-              <div className="space-y-3 text-base mb-6">
-                  <SummaryRow label="إجمالي المبيعات النقدية" value={totalSales} color="text-green-700" />
-                  <SummaryRow label="إجمالي المرتجعات النقدية" value={totalReturns} color="text-red-700" />
-                  <SummaryRow label="صافي النقد المتوقع في الصندوق" value={netCashExpected} color="text-indigo-700" />
-              </div>
-            )}
+            <div className="space-y-3 text-base mb-6">
+                <SummaryRow label="إجمالي المبيعات الإجمالي" value={stats.totalSales} />
+                <SummaryRow label="مبيعات الكاش" value={stats.totalCashSales} color="text-green-700" />
+                <SummaryRow label="مبيعات البطاقة" value={stats.totalCardSales} color="text-blue-700" />
+                <SummaryRow label="مبالغ مستردة للصالة" value={stats.totalReturns} color="text-red-700" />
+                <SummaryRow label="مبالغ منصرفة (المصروفات)" value={stats.totalExpenses} color="text-orange-700" />
+                <SummaryRow label="صافي النقد المتوقع في الصندوق" value={stats.netCashExpected} color="text-indigo-700" />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                 <InputField 

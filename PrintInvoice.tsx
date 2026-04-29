@@ -95,10 +95,30 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                     {invoice.items.map((item, index) => (
                         <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid`}>
                             <td className="p-3 text-dark-400 text-xs">{index + 1}</td>
-                            <td className="p-3 font-bold text-dark-800">{item.productName}</td>
-                            <td className="p-3 text-left text-dark-700">{item.price.toFixed(2)}</td>
+                            <td className="p-3 font-bold text-dark-800">
+                                {item.productName}
+                                {item.modifiers && item.modifiers.length > 0 && (
+                                    <div className="text-xs text-dark-500 font-normal mt-1 space-y-0.5">
+                                        {item.modifiers.map((mod, i) => (
+                                            <p key={i}>+ {mod.name}</p>
+                                        ))}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="p-3 text-left text-dark-700">
+                                {item.price.toFixed(2)}
+                                {item.modifiers && item.modifiers.length > 0 && (
+                                    <div className="text-xs text-dark-400 mt-1 space-y-0.5 mt-1">
+                                         {item.modifiers.map((mod, i) => (
+                                            <p key={i}>+{mod.price.toFixed(2)}</p>
+                                        ))}
+                                    </div>
+                                )}
+                            </td>
                             <td className="p-3 text-left text-red-500">{(item.discount || 0).toFixed(2)}</td>
-                            <td className="p-3 text-left font-bold text-dark-800">{(item.price - (item.discount || 0)).toFixed(2)}</td>
+                            <td className="p-3 text-left font-bold text-dark-800">
+                                {(item.price - (item.discount || 0) + (item.modifiers?.reduce((s, m) => s + m.price, 0) || 0)).toFixed(2)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>

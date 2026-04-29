@@ -66,11 +66,8 @@ const DeliveryOrderModal: React.FC<DeliveryOrderModalProps> = ({ cart, customers
   };
   
   useEffect(() => {
-    // If user clears the name field, deselect the customer
-    if (!name.trim()) {
-      setSelectedCustomer(null);
-    }
-  }, [name]);
+    // The modal's name field onChange now handles deselecting if modified.
+  }, []);
 
 
   return (
@@ -101,9 +98,9 @@ const DeliveryOrderModal: React.FC<DeliveryOrderModalProps> = ({ cart, customers
         </div>
         
         <h4 className="font-semibold text-gray-700 mt-4 border-t pt-2">بيانات العميل</h4>
-        <InputField id="name" label="الاسم الكامل" value={name} onChange={e => setName(e.target.value)} error={errors.name} />
-        <InputField id="phone" label="رقم الهاتف" value={phone} onChange={e => setPhone(e.target.value)} error={errors.phone} type="tel" />
-        <InputField id="address" label="العنوان الكامل" value={address} onChange={e => setAddress(e.target.value)} error={errors.address} />
+        <InputField id="name" label="الاسم الكامل" value={name} onChange={e => { setName(e.target.value); if (selectedCustomer && e.target.value !== selectedCustomer.name) setSelectedCustomer(null); }} error={errors.name} />
+        <InputField id="phone" label="رقم الهاتف" value={phone} onChange={e => { setPhone(e.target.value); if (selectedCustomer && e.target.value !== selectedCustomer.phone) setSelectedCustomer(null); }} error={errors.phone} type="tel" />
+        <InputField id="address" label="العنوان الكامل" value={address} onChange={e => { setAddress(e.target.value); if (selectedCustomer && e.target.value !== (selectedCustomer.address || '')) setSelectedCustomer(null); }} error={errors.address} />
         <InputField id="deliveryFee" label="رسوم التوصيل" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} error={errors.deliveryFee} type="number" />
         
         <div className="mb-4">

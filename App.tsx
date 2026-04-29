@@ -15,7 +15,6 @@ import SettingsView from './components/SettingsView';
 import UsersView from './components/UsersView';
 import ReturnRequestsView from './components/ReturnRequestsView';
 import ExpensesView from './components/ExpensesView';
-import AIChatAssistant from './components/AIChatAssistant';
 import CustomersView from './components/CustomersView';
 import FinanceView from './components/FinanceView';
 import OrdersView from './components/OrdersView';
@@ -404,14 +403,14 @@ const App: React.FC = () => {
 
     const views: { [key: string]: {element: React.ReactNode, label: string, icon: string, roles: Array<'admin' | 'cashier'>} } = {
         dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
-        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
+        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} transactions={transactions} tillCloseouts={tillCloseouts} users={users} accountBalances={accountBalances} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
         financialSummary: { element: <FinancialSummaryView invoices={invoices} expenses={expenses} transactions={transactions} accountBalances={accountBalances} />, label: "الملخص المالي", icon: "summarize", roles: ['admin'] },
         pos: { element: <POSView products={products} customers={customers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
         orders: { element: <OrdersView invoices={invoices} users={users} onUpdateStatus={updateOrderStatus} onConvertToSale={onConvertToSale} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الطلبات", icon: "receipt_long", roles: ['admin', 'cashier'] },
         invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
         products: { element: <ProductsView products={products} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
         returnRequests: { element: <ReturnRequestsView requests={returnRequests} approveRequest={approveRequest} rejectRequest={rejectRequest} />, label: "طلبات الإرجاع", icon: "rule", roles: ['admin'] },
-        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} />, label: "المصروفات", icon: "payments", roles: ['admin'] },
+        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} currentUser={currentUser} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
         customers: { element: <CustomersView customers={customers} addCustomer={addCustomer} updateCustomer={updateCustomer} deleteCustomer={deleteCustomer} />, label: "العملاء", icon: "groups", roles: ['admin'] },
         finance: { element: <FinanceView accounts={accounts} accountBalances={accountBalances} transactions={transactions} budgets={budgets} onSaveAccount={onSaveAccount} onSaveTransaction={addFinancialTransaction} onSaveBudget={(b) => setBudgets(p=>[...p, {...b, id: `budget-${Date.now()}`}])} />, label: "الخزينة", icon: "account_balance", roles: ['admin'] },
         tillCloseouts: { element: <TillCloseoutsView tillCloseouts={tillCloseouts} />, label: "تقارير الصناديق", icon: "archive", roles: ['admin'] },
@@ -424,7 +423,7 @@ const App: React.FC = () => {
         const view = views[viewKey];
         if (!view || !view.roles.includes(currentUser.role)) return null;
         return (
-            <button onClick={() => { setCurrentView(viewKey); setIsSidebarOpen(false); }} className={`w-full text-right flex items-center gap-4 px-4 py-3 rounded-lg transition-colors ${currentView === viewKey ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20' : 'hover:bg-brand-50 text-dark-700'}`}>
+            <button onClick={() => { setCurrentView(viewKey); setIsSidebarOpen(false); }} className={`w-full text-right flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${currentView === viewKey ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 font-bold scale-[1.02]' : 'hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 font-medium'}`}>
                 <span className="material-symbols-outlined">{view.icon}</span>
                 <span>{view.label}</span>
             </button>
@@ -432,28 +431,30 @@ const App: React.FC = () => {
     };
     
     const adminSidebarOrder = ['dashboard', 'reports', 'financialSummary', 'pos', 'orders', 'invoices', 'returnRequests', 'products', 'expenses', 'customers', 'finance', 'tillCloseouts', 'users', 'settings'];
-    const cashierSidebarOrder = ['pos', 'orders', 'invoices', 'cashierTools'];
+    const cashierSidebarOrder = ['pos', 'orders', 'invoices', 'expenses', 'cashierTools'];
 
     const sidebarOrder = currentUser.role === 'admin' ? adminSidebarOrder : cashierSidebarOrder;
 
 
     return (
-        <div className="flex h-screen bg-dark-50 overflow-hidden" dir="rtl">
-            <aside className={`bg-white border-l border-dark-100 h-full transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out w-64 fixed md:static right-0 z-30 md:flex-shrink-0 shadow-2xl md:shadow-none`}>
-                 <div className="p-6 flex items-center justify-between border-b border-dark-50">
+        <div className="flex h-screen bg-slate-50 overflow-hidden font-sans" dir="rtl">
+            <aside className={`bg-white border-l border-slate-100 h-full transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out w-64 fixed md:static right-0 z-40 md:flex-shrink-0 shadow-2xl md:shadow-none`}>
+                 <div className="p-6 flex items-center justify-between border-b border-slate-50">
                     <div className="flex items-center gap-3">
-                        <Logo className="h-10 w-10" />
-                        <h2 className="text-xl font-black text-dark-900">مطابخ الشرق</h2>
+                        <div className="bg-indigo-600 text-white p-1.5 rounded-xl shadow-inner">
+                             <Logo className="h-6 w-6" />
+                        </div>
+                        <h2 className="text-xl font-bold bg-gradient-to-l from-indigo-600 to-indigo-800 bg-clip-text text-transparent">مطابخ الشرق</h2>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-dark-500 hover:text-brand-600 transition-colors">
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-500 hover:text-indigo-600 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
-                <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100%-80px)] custom-scrollbar">
+                <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100%-80px)] custom-scrollbar">
                     {sidebarOrder.map(key => <SidebarLink key={key} viewKey={key} />)}
                 </nav>
             </aside>
-             {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>}
+             {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden transition-opacity"></div>}
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header 
@@ -467,26 +468,11 @@ const App: React.FC = () => {
                 </main>
             </div>
             {invoiceToPrint && <PrintInvoice invoice={invoiceToPrint} onClose={() => setInvoiceToPrint(null)} shopName={shopName} shopAddress={shopAddress} />}
-            {currentUser.role === 'admin' && 
-                <AIChatAssistant 
-                    products={products}
-                    invoices={invoices}
-                    expenses={expenses}
-                    customers={customers}
-                    addProduct={addProduct}
-                    updateProduct={updateProduct}
-                    deleteProduct={deleteProduct}
-                    addExpense={(exp) => addExpense({...exp, accountId: 'cash-default'})}
-                    deleteExpense={deleteExpense}
-                    addCustomer={addCustomer}
-                    updateCustomer={updateCustomer}
-                    deleteCustomer={deleteCustomer}
-                    onCompleteSale={onCompleteSale}
-                />
-            }
+
             {isCloseTillModalOpen && currentUser && (
                 <CloseTillModal
                     invoices={invoices}
+                    expenses={expenses}
                     users={users}
                     currentUser={currentUser}
                     onClose={() => setIsCloseTillModalOpen(false)}

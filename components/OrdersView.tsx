@@ -28,6 +28,35 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
   const [invoiceToRequestReturn, setInvoiceToRequestReturn] = useState<Invoice | null>(null);
 
 
+  const salesByItem = useMemo(() => {
+    const map: Record<string, {
+      name: string;
+      quantity: number;
+      total: number;
+    }> = {};
+
+    invoices.forEach(inv => {
+      // Ignore returns or cancelled
+      if (inv.status === 'cancelled' || inv.type === 'return') return;
+
+      inv.items.forEach(item => {
+        if (!map[item.productName]) {
+          map[item.productName] = {
+            name: item.productName,
+            quantity: 0,
+            total: 0
+          };
+        }
+
+        // Increment by 1 since each item in the array represents one unit
+        map[item.productName].quantity += 1;
+        map[item.productName].total += (item.price - (item.discount || 0));
+      });
+    });
+
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [invoices]);
+
   const filteredInvoices = useMemo(() => {
     return invoices
       .filter(inv => {
@@ -64,31 +93,35 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
     setInvoiceToRequestReturn(null);
   };
 
-  const typeMap: Record<OrderType, { label: string, className: string }> = {
-    sale: { label: 'بيع سريع', className: 'bg-green-100 text-green-800' },
-    delivery: { label: 'توصيل', className: 'bg-sky-100 text-sky-800' },
-    reservation: { label: 'حجز', className: 'bg-indigo-100 text-indigo-800' },
-    return: { label: 'مرتجع', className: 'bg-red-100 text-red-800' },
-    dine_in: { label: 'صالة', className: 'bg-teal-100 text-teal-800' },
-    takeaway: { label: 'سفري', className: 'bg-amber-100 text-amber-800' },
+  const typeMap: Record<OrderType, { label: string, className: string, icon: string }> = {
+    sale: { label: 'بيع سريع', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'point_of_sale' },
+    delivery: { label: 'توصيل', className: 'bg-sky-50 text-sky-700 border-sky-200', icon: 'local_shipping' },
+    reservation: { label: 'حجز', className: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'event_seat' },
+    return: { label: 'مرتجع', className: 'bg-red-50 text-red-700 border-red-200', icon: 'keyboard_return' },
+    dine_in: { label: 'صالة', className: 'bg-orange-50 text-orange-700 border-orange-200', icon: 'restaurant' },
+    takeaway: { label: 'سفري', className: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'takeout_dining' },
   };
   
-  const statusMap: Record<OrderStatus, { label: string, className: string }> = {
-    pending: { label: 'قيد الانتظار', className: 'bg-yellow-100 text-yellow-800' },
-    confirmed: { label: 'تم التأكيد', className: 'bg-blue-100 text-blue-800' },
-    delivered: { label: 'تم التوصيل', className: 'bg-sky-100 text-sky-800' },
-    completed: { label: 'مكتمل', className: 'bg-green-100 text-green-800' },
-    cancelled: { label: 'ملغي', className: 'bg-gray-100 text-gray-800' },
+  const statusMap: Record<OrderStatus, { label: string, className: string, dot: string }> = {
+    pending: { label: 'قيد الانتظار', className: 'bg-yellow-50 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400' },
+    confirmed: { label: 'تم التأكيد', className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-400' },
+    delivered: { label: 'تم التوصيل', className: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-400' },
+    completed: { label: 'مكتمل', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+    cancelled: { label: 'ملغي', className: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
   };
 
-  const paymentMap: Record<PaymentStatus, { label: string, className: string }> = {
-    paid: { label: 'مدفوع', className: 'bg-green-100 text-green-800' },
-    unpaid: { label: 'غير مدفوع', className: 'bg-red-100 text-red-800' },
-    partial: { label: 'جزئي', className: 'bg-orange-100 text-orange-800' },
+  const paymentMap: Record<PaymentStatus, { label: string, className: string, dot: string }> = {
+    paid: { label: 'مدفوع', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+    unpaid: { label: 'غير مدفوع', className: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-400' },
+    partial: { label: 'جزئي', className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
   };
   
-  const Badge: React.FC<{ data: { label: string, className: string } }> = ({ data }) => (
-    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${data.className}`}>{data.label}</span>
+  const Badge: React.FC<{ data: { label: string, className: string, icon?: string, dot?: string } }> = ({ data }) => (
+    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full border flex items-center justify-center gap-1.5 w-fit shadow-sm ${data.className}`}>
+      {data.icon && <span className="material-symbols-outlined text-[14px]">{data.icon}</span>}
+      {data.dot && <span className={`w-1.5 h-1.5 rounded-full ${data.dot}`}></span>}
+      {data.label}
+    </span>
   );
 
   return (
@@ -129,6 +162,45 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
                 {users.map(user => <option key={user.id} value={user.username}>{user.username}</option>)}
              </select>
           )}
+        </div>
+
+        {/* Sales by Item Table */}
+        <div className="p-6 bg-slate-50 border-b border-slate-200">
+          <div className="flex items-center gap-2 mb-4">
+             <span className="material-symbols-outlined text-indigo-500">point_of_sale</span>
+             <h3 className="text-lg font-bold text-slate-800">تقرير المبيعات حسب الصنف</h3>
+          </div>
+          <div className="overflow-auto max-h-96 bg-white rounded-xl shadow-sm border border-slate-100 custom-scrollbar">
+            <table className="w-full text-sm text-right">
+              <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 sticky top-0 z-10">
+                <tr>
+                  <th className="p-4 font-semibold uppercase text-xs">الصنف</th>
+                  <th className="p-4 font-semibold uppercase text-xs">الكمية المباعة</th>
+                  <th className="p-4 font-semibold uppercase text-xs">إجمالي المبيعات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {salesByItem.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-8 text-center text-slate-400">لا توجد مبيعات للعرض.</td>
+                  </tr>
+                ) : (
+                  salesByItem.map((item, index) => (
+                    <tr key={item.name} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-medium text-slate-700 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold">{index + 1}</div>
+                          {item.name}
+                      </td>
+                      <td className="p-4 text-slate-600">{item.quantity}</td>
+                      <td className="p-4 font-bold text-emerald-600">
+                        ${item.total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="space-y-4 md:space-y-0">

@@ -55,10 +55,8 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ cart, customers, on
   };
   
   useEffect(() => {
-    if (!name.trim()) {
-      setSelectedCustomer(null);
-    }
-  }, [name]);
+    // The modal's name field onChange now handles deselecting if modified.
+  }, []);
 
 
   return (
@@ -89,8 +87,8 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ cart, customers, on
         </div>
 
         <h4 className="font-semibold text-gray-700 mt-4 border-t pt-2">بيانات العميل</h4>
-        <InputField id="name" label="الاسم الكامل" value={name} onChange={e => setName(e.target.value)} error={errors.name} />
-        <InputField id="phone" label="رقم الهاتف" value={phone} onChange={e => setPhone(e.target.value)} error={errors.phone} type="tel" />
+        <InputField id="name" label="الاسم الكامل" value={name} onChange={e => { setName(e.target.value); if (selectedCustomer && e.target.value !== selectedCustomer.name) setSelectedCustomer(null); }} error={errors.name} />
+        <InputField id="phone" label="رقم الهاتف" value={phone} onChange={e => { setPhone(e.target.value); if (selectedCustomer && e.target.value !== selectedCustomer.phone) setSelectedCustomer(null); }} error={errors.phone} type="tel" />
         
         <div className="flex items-center justify-end gap-2 mt-6">
           <button type="button" onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600">إلغاء</button>
