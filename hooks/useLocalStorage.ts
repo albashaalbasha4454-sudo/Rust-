@@ -1,151 +1,57 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const RESET_VERSION_KEY = 'data_reset_items_prices_only_after_offers_2026_05_07_v3';
-const LEGACY_BACKUP_KEY = 'legacy_full_backup_before_after_offers_reset';
+const STORAGE_NAMESPACE = 'fresh_start_2026_05_07_v5';
 
-const OPERATIONAL_KEYS_TO_CLEAR = [
-  'invoices',
-  'expenses',
-  'returnRequests',
-  'customers',
-  'financialAccounts',
-  'financialTransactions',
-  'budgets',
-  'tillCloseouts',
-  'activityLog',
-  'modifiers',
-  'auto_backup_snapshot'
-];
+const getStorageKey = (key: string) => `${STORAGE_NAMESPACE}:${key}`;
 
-const toNumberOrUndefined = (value: unknown): number | undefined => {
-  if (value === undefined || value === null || value === '') return undefined;
-  const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+const normalizeNumber = (value: unknown): number => {
+  const parsed = typeof value === 'string' ? parseFloat(value) : Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 const normalizeName = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
 
-const readDepartments = (): any[] => {
-  if (typeof window === 'undefined' || !window.localStorage) return [];
-
-  try {
-    const rawDepartments = window.localStorage.getItem('departments');
-    const parsedDepartments = rawDepartments ? JSON.parse(rawDepartments) : [];
-    return Array.isArray(parsedDepartments) ? parsedDepartments : [];
-  } catch {
-    return [];
-  }
-};
-
-const resolveDepartmentForProduct = (product: any) => {
-  const departments = readDepartments();
-  const fallbackName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
-  const rawDepartmentId = normalizeName(product.departmentId);
-  const rawDepartmentName = fallbackName;
-
-  const byId = departments.find((department) => department.id === rawDepartmentId);
-  if (byId) return { departmentId: byId.id, departmentName: byId.name };
-
-  const byName = departments.find((department) => normalizeName(department.name) === rawDepartmentName);
-  if (byName) return { departmentId: byName.id, departmentName: byName.name };
-
-  const misc = departments.find((department) => department.id === 'dept-misc' || normalizeName(department.name) === 'عام');
-  if (misc) return { departmentId: misc.id, departmentName: misc.name };
-
-  return { departmentId: rawDepartmentId && rawDepartmentId !== 'misc' ? rawDepartmentId : 'dept-misc', departmentName: rawDepartmentName };
-};
-
-const pickSavedOfferPrice = (product: any): number | undefined => {
-  const candidates = [
-    product.salePrice,
-    product.offerPrice,
-    product.customPrice,
-    product.customSalePrice,
-    product.manualPrice,
-    product.specialPrice,
-    product.discountedPrice,
-    product.priceAfterOffer,
-    product.offer_price,
-    product.sale_price,
-    product.custom_price,
-    product['سعر العرض'],
-    product['السعر المخصص'],
-    product['سعر مخصص'],
-    product['السعر بعد العرض'],
-    product['سعر بعد العرض']
-  ];
-
-  for (const value of candidates) {
-    const parsed = toNumberOrUndefined(value);
-    if (parsed !== undefined && parsed > 0) return parsed;
-  }
-
-  return undefined;
-};
-
-const sanitizeProductsForFreshStart = (products: unknown) => {
+const normalizeProducts = (products: unknown) => {
   if (!Array.isArray(products)) return products;
 
   return products
-    .filter((product: any) => product && typeof product.name === 'string' && product.name.trim())
+    .filter((product: any) => product && normalizeName(product.name))
     .map((product: any, index: number) => {
-      const rawPrice = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price || 0);
-      const price = Number.isFinite(rawPrice) ? rawPrice : 0;
-      const savedOfferPrice = pickSavedOfferPrice(product);
-      const salePrice = savedOfferPrice !== undefined && savedOfferPrice > 0 && savedOfferPrice < price ? savedOfferPrice : undefined;
-      const resolvedDepartment = resolveDepartmentForProduct(product);
+      const price = normalizeNumber(product.price);
+      const offerCandidates = [
+        product.salePrice,
+        product.offerPrice,
+        product.customPrice,
+        product.customSalePrice,
+        product.manualPrice,
+        product.specialPrice,
+        product.discountedPrice,
+        product.priceAfterOffer,
+        product['سعر العرض'],
+        product['السعر المخصص']
+      ];
+      const offerPrice = offerCandidates
+        .map(normalizeNumber)
+        .find((value) => value > 0 && value < price);
+
+      const departmentName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
+      const departmentId = normalizeName(product.departmentId) || 'dept-misc';
 
       return {
         ...product,
-        id: product.id || `prod-clean-${index + 1}`,
-        name: product.name.trim(),
-        departmentId: resolvedDepartment.departmentId,
-        departmentName: resolvedDepartment.departmentName,
-        category: resolvedDepartment.departmentName,
+        id: product.id || `prod-${index + 1}`,
+        name: normalizeName(product.name),
+        departmentId,
+        departmentName,
+        category: departmentName,
         price,
-        salePrice,
+        salePrice: offerPrice,
         status: product.status === 'unavailable' ? 'unavailable' : 'available',
         reviewStatus: price > 0 ? 'ok' : 'needs_price',
         createdAt: product.createdAt || new Date().toISOString(),
-        updatedAt: product.updatedAt || new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
     });
-};
-
-const normalizeFinancialTransactions = (transactions: unknown) => {
-  if (!Array.isArray(transactions)) return transactions;
-
-  const seen = new Set<string>();
-
-  return transactions
-    .filter((tx: any) => {
-      if (!tx || typeof tx !== 'object') return false;
-      const amount = Number(tx.amount);
-      if (!Number.isFinite(amount) || amount <= 0) return false;
-
-      if (tx.type === 'expense' && typeof tx.description === 'string' && tx.description.includes('معلق')) {
-        return false;
-      }
-
-      const uniqueKey = [
-        tx.type || '',
-        amount,
-        tx.relatedInvoiceId || '',
-        tx.fromAccountId || '',
-        tx.toAccountId || '',
-        tx.description || ''
-      ].join('|');
-
-      if (seen.has(uniqueKey)) return false;
-      seen.add(uniqueKey);
-      return true;
-    })
-    .map((tx: any, index: number) => ({
-      ...tx,
-      id: tx.id || `tx-clean-${index + 1}`,
-      amount: Number(tx.amount),
-      date: tx.date || new Date().toISOString()
-    }));
 };
 
 const normalizeInvoices = (invoices: unknown) => {
@@ -154,94 +60,31 @@ const normalizeInvoices = (invoices: unknown) => {
   return invoices.map((invoice: any) => {
     if (!invoice || typeof invoice !== 'object') return invoice;
     const items = Array.isArray(invoice.items) ? invoice.items : [];
-    const itemsTotal = items.reduce((sum: number, item: any) => sum + Number(item?.lineTotal || 0), 0);
-    const deliveryFee = Number(invoice.deliveryFee || 0);
+    const itemsTotal = items.reduce((sum: number, item: any) => sum + normalizeNumber(item?.lineTotal), 0);
+    const deliveryFee = normalizeNumber(invoice.deliveryFee);
     const total = Number.isFinite(Number(invoice.total)) ? Number(invoice.total) : itemsTotal + deliveryFee;
 
-    return {
-      ...invoice,
-      items,
-      total,
-      paidDate: invoice.paymentStatus === 'paid' ? (invoice.paidDate || invoice.date || new Date().toISOString()) : invoice.paidDate
-    };
+    return { ...invoice, items, total };
   });
 };
 
 const normalizeStoredValue = (key: string, value: unknown) => {
-  if (key === 'products') return sanitizeProductsForFreshStart(value);
-  if (key === 'financialTransactions') return normalizeFinancialTransactions(value);
+  if (key === 'products') return normalizeProducts(value);
   if (key === 'invoices') return normalizeInvoices(value);
   return value;
 };
 
-const runOneTimeFreshStartReset = () => {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  if (window.localStorage.getItem(RESET_VERSION_KEY) === 'done') return;
-
-  try {
-    const backup: Record<string, unknown> = {
-      createdAt: new Date().toISOString(),
-      reason: 'Fresh start: keep only products and prices, archive old operational data.'
-    };
-
-    const keysToBackup = [
-      'products',
-      'departments',
-      'modifiers',
-      'invoices',
-      'expenses',
-      'returnRequests',
-      'customers',
-      'financialAccounts',
-      'financialTransactions',
-      'budgets',
-      'tillCloseouts',
-      'activityLog',
-      'shopName',
-      'shopAddress'
-    ];
-
-    keysToBackup.forEach((key) => {
-      const raw = window.localStorage.getItem(key);
-      if (raw !== null) {
-        try {
-          backup[key] = JSON.parse(raw);
-        } catch {
-          backup[key] = raw;
-        }
-      }
-    });
-
-    window.localStorage.setItem(LEGACY_BACKUP_KEY, JSON.stringify(backup));
-
-    const rawProducts = window.localStorage.getItem('products');
-    if (rawProducts) {
-      try {
-        const products = JSON.parse(rawProducts);
-        window.localStorage.setItem('products', JSON.stringify(sanitizeProductsForFreshStart(products)));
-      } catch {
-        window.localStorage.removeItem('products');
-      }
-    }
-
-    OPERATIONAL_KEYS_TO_CLEAR.forEach((key) => window.localStorage.removeItem(key));
-    window.localStorage.setItem(RESET_VERSION_KEY, 'done');
-  } catch (error) {
-    console.error('Fresh start reset failed:', error);
-  }
-};
-
-runOneTimeFreshStartReset();
-
 function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const storageKey = getStorageKey(key);
+
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
-      const item = window.localStorage.getItem(key);
+      const item = window.localStorage.getItem(storageKey);
       const parsedValue = item ? JSON.parse(item) : initialValue;
       const normalizedValue = normalizeStoredValue(key, parsedValue) as T;
 
-      if (item && normalizedValue !== parsedValue) {
-        window.localStorage.setItem(key, JSON.stringify(normalizedValue));
+      if (!item) {
+        window.localStorage.setItem(storageKey, JSON.stringify(normalizedValue));
       }
 
       return normalizedValue;
@@ -256,19 +99,19 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<R
       setStoredValue((currentValue) => {
         const valueToStore = value instanceof Function ? value(currentValue) : value;
         const normalizedValue = normalizeStoredValue(key, valueToStore) as T;
-        window.localStorage.setItem(key, JSON.stringify(normalizedValue));
+        window.localStorage.setItem(storageKey, JSON.stringify(normalizedValue));
         return normalizedValue;
       });
     } catch (error) {
       console.error(error);
     }
-  }, [key]);
+  }, [key, storageKey]);
 
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === key) {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === storageKey) {
         try {
-          const parsedValue = e.newValue ? JSON.parse(e.newValue) : initialValue;
+          const parsedValue = event.newValue ? JSON.parse(event.newValue) : initialValue;
           setStoredValue(normalizeStoredValue(key, parsedValue) as T);
         } catch (error) {
           console.error(error);
@@ -282,7 +125,7 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<R
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [key, initialValue]);
+  }, [key, storageKey, initialValue]);
 
   return [storedValue, setValue];
 }
