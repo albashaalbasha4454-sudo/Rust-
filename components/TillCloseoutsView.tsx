@@ -62,16 +62,11 @@ const TillCloseoutsView: React.FC<TillCloseoutsViewProps> = ({ tillCloseouts }) 
                         </tr>
                         {expandedId === c.id && (
                             <tr className="bg-slate-50">
-                                <td colSpan={6} className="p-4 text-sm border-b border-slate-200">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div><strong className="block text-slate-500 text-xs">إجمالي المبيعات</strong> {c.totalSales.toFixed(2)}</div>
-                                        <div><strong className="block text-slate-500 text-xs">مبيعات الكاش</strong> {(c.totalCashSales || 0).toFixed(2)}</div>
-                                        <div><strong className="block text-slate-500 text-xs">مبيعات البطاقة</strong> {(c.totalCardSales || 0).toFixed(2)}</div>
-                                        <div><strong className="block text-slate-500 text-xs">المرتجعات</strong> {c.totalReturns.toFixed(2)}</div>
-                                        <div><strong className="block text-slate-500 text-xs">المصروفات</strong> {(c.totalExpenses || 0).toFixed(2)}</div>
-                                        <div><strong className="block text-slate-500 text-xs">عدد الفواتير</strong> {c.invoiceIds.length}</div>
-                                        <div className="col-span-2 md:col-span-4"><strong className="block text-slate-500 text-xs">الملاحظات</strong> <span className="whitespace-pre-wrap">{c.notes || 'لا يوجد'}</span></div>
-                                    </div>
+                                <td colSpan={6} className="p-4 text-xs">
+                                    <p><strong>صافي المبيعات:</strong> {c.totalSales.toFixed(2)}</p>
+                                    <p><strong>صافي المرتجعات:</strong> {c.totalReturns.toFixed(2)}</p>
+                                    <p><strong>عدد الفواتير:</strong> {c.invoiceIds.length}</p>
+                                    <p><strong>الملاحظات:</strong> {c.notes || 'لا يوجد'}</p>
                                 </td>
                             </tr>
                         )}

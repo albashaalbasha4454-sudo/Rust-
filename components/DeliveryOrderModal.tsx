@@ -21,7 +21,7 @@ const DeliveryOrderModal: React.FC<DeliveryOrderModalProps> = ({ cart, customers
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [searchTerm, setSearchTerm] = useState('');
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.lineTotal, 0);
 
   const filteredCustomers = useMemo(() => {
     if (!searchTerm.trim()) return [];

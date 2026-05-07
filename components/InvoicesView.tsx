@@ -4,6 +4,7 @@ import PrintInvoice from '../PrintInvoice';
 import ReturnModal from './ReturnModal';
 import RequestReturnModal from './RequestReturnModal';
 import Pagination from './common/Pagination';
+import { exportToExcel } from '../utils/exportUtils';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -36,9 +37,6 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
 
   const filteredInvoices = useMemo(() => {
     return sortedInvoices.filter(inv => {
-      if (currentUser.role === 'cashier' && inv.processedBy !== currentUser.username) {
-        return false;
-      }
       const matchesSearch = inv.id.includes(searchTerm) || inv.customerInfo?.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'all' || inv.type === filterType;
       
@@ -81,6 +79,18 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
     setInvoiceToRequestReturn(null);
   };
 
+  const handleExport = () => {
+    const formattedData = filteredInvoices.map(inv => ({
+        'رقم الفاتورة': inv.id.substring(0,8),
+        'التاريخ': new Date(inv.date).toLocaleDateString('ar-EG'),
+        'العميل': inv.customerInfo?.name || '-',
+        'النوع': getInvoiceTypeStyle(inv.type).label,
+        'الإجمالي': inv.total.toFixed(2),
+        'الحالة': inv.status
+    }));
+    exportToExcel(formattedData, 'الفواتير');
+  };
+
   const getInvoiceTypeStyle = (type: Invoice['type']) => {
     const styles: Record<Invoice['type'], {label: string, className: string}> = {
         sale: { label: 'بيع', className: 'bg-green-100 text-green-800'},
@@ -114,14 +124,23 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">عرض وتصفح جميع الفواتير الصادرة والواردة.</p>
             </div>
-            <button 
-                onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-                className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors font-medium"
-            >
-                <span className="material-symbols-outlined">filter_list</span>
-                تصفية متقدمة
-                <span className={`material-symbols-outlined transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}>expand_more</span>
-            </button>
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                    className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors font-medium"
+                >
+                    <span className="material-symbols-outlined">filter_list</span>
+                    تصفية متقدمة
+                    <span className={`material-symbols-outlined transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}>expand_more</span>
+                </button>
+                <button 
+                    onClick={handleExport}
+                    className="flex items-center gap-2 text-white bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                    <span className="material-symbols-outlined">file_download</span>
+                    تصدير إكسل
+                </button>
+            </div>
         </div>
 
         <div className={`bg-slate-50 p-6 border-b border-slate-200 transition-all duration-300 ${isFilterExpanded ? 'block' : 'hidden'}`}>

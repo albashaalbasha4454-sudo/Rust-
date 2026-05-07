@@ -46,8 +46,22 @@ const DashboardView: React.FC<{
   products: Product[];
   expenses: Expense[];
   customers: Customer[];
-}> = ({ invoices, products, expenses, customers }) => {
+  accounts: any[];
+  departments: any[];
+  onAddManualSale: (data: any) => void;
+  onAddExpense: (data: any) => void;
+}> = ({ invoices, products, expenses, customers, accounts, departments, onAddManualSale, onAddExpense }) => {
   const [dateRange, setDateRange] = useState<'all' | '7' | '30'>('30');
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showManualSaleModal, setShowManualSaleModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (successMessage) {
+        const timer = setTimeout(() => setSuccessMessage(null), 3000);
+        return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const profitExpenseChartRef = useRef<HTMLCanvasElement>(null);
   const salesTrendChartRef = useRef<HTMLCanvasElement>(null);
@@ -146,8 +160,8 @@ const DashboardView: React.FC<{
             if (!productSales[item.productId]) {
                 productSales[item.productId] = { name: item.productName, count: 0, total: 0 };
             }
-            productSales[item.productId].count += 1;
-            productSales[item.productId].total += (item.price - (item.discount || 0));
+            productSales[item.productId].count += item.quantity;
+            productSales[item.productId].total += item.lineTotal;
         });
     });
     const topProducts = Object.values(productSales)
@@ -337,15 +351,40 @@ const DashboardView: React.FC<{
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
+      {successMessage && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
+              <span className="material-symbols-outlined">check_circle</span>
+              <span className="font-bold">{successMessage}</span>
+          </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h2 className="text-3xl font-bold text-slate-800">لوحة التحكم</h2>
             <p className="text-slate-500 mt-2">نظرة شاملة ودقيقة على أداء مطعمك.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
-              <button onClick={() => setDateRange('7')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === '7' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>آخر 7 أيام</button>
-              <button onClick={() => setDateRange('30')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === '30' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>آخر 30 يوم</button>
-              <button onClick={() => setDateRange('all')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>كل الأوقات</button>
+          <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowManualSaleModal(true)}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all font-bold"
+                  >
+                      <span className="material-symbols-outlined">add_shopping_cart</span>
+                      إضافة مبيعات / غلة
+                  </button>
+                  <button 
+                   onClick={() => setShowExpenseModal(true)}
+                    className="flex items-center gap-2 bg-rose-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all font-bold"
+                  >
+                      <span className="material-symbols-outlined">payments</span>
+                      إضافة مصروف
+                  </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
+                  <button onClick={() => setDateRange('7')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === '7' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>آخر 7 أيام</button>
+                  <button onClick={() => setDateRange('30')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === '30' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>آخر 30 يوم</button>
+                  <button onClick={() => setDateRange('all')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dateRange === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>كل الأوقات</button>
+              </div>
           </div>
       </div>
       
@@ -455,8 +494,199 @@ const DashboardView: React.FC<{
               </table>
           </div>
       )}
+      {/* Render Modals */}
+      {showExpenseModal && (
+          <ExpenseFormModal 
+            onClose={() => setShowExpenseModal(false)} 
+            onSave={(data) => {
+                onAddExpense(data);
+                setShowExpenseModal(false);
+                setSuccessMessage("تم حفظ المصروف بنجاح");
+            }} 
+            departments={departments}
+            accounts={accounts}
+          />
+      )}
+
+      {showManualSaleModal && (
+          <ManualSaleModal 
+            onClose={() => setShowManualSaleModal(false)} 
+            onSave={(data) => {
+                onAddManualSale(data);
+                setShowManualSaleModal(false);
+                setSuccessMessage("تم حفظ المبيعات بنجاح");
+            }} 
+            departments={departments}
+          />
+      )}
     </div>
   );
+};
+
+const ExpenseFormModal = ({ onClose, onSave, departments, accounts }: any) => {
+    const [formData, setFormData] = useState({
+        date: new Date().toISOString().split('T')[0],
+        departmentId: '',
+        description: '',
+        amount: '',
+        accountId: 'cash-default',
+        status: 'completed',
+        notes: '',
+        category: 'مصروفات عامة'
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.departmentId || !formData.amount || !formData.description) {
+            alert("برجاء ملء جميع الحقول الإلزامية");
+            return;
+        }
+        onSave({
+            ...formData,
+            amount: parseFloat(formData.amount)
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scaleIn">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                    <h3 className="text-xl font-bold text-indigo-900">إضافة مصروف جديد</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">التاريخ</label>
+                            <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700 text-red-500">القسم *</label>
+                            <select value={formData.departmentId} onChange={e => setFormData({...formData, departmentId: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white" required>
+                                <option value="">اختر القسم</option>
+                                {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-700 text-red-500">البيان / الوصف *</label>
+                        <input type="text" placeholder="مثال: فاتورة كهرباء، شراء خضروات..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700 text-red-500">المبلغ *</label>
+                            <input type="number" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">الحساب</label>
+                            <select value={formData.accountId} onChange={e => setFormData({...formData, accountId: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white">
+                                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">التصنيف</label>
+                            <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">الحالة</label>
+                            <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white">
+                                <option value="completed">مكتمل</option>
+                                <option value="review">يحتاج مراجعة</option>
+                                <option value="incomplete">غير مكتمل</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-700">الملاحظات</label>
+                        <textarea rows={2} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"></textarea>
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-rose-500 text-white rounded-xl font-bold shadow-lg shadow-rose-100 hover:bg-rose-600 transition-all mt-4">
+                        حفظ المصروف
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const ManualSaleModal = ({ onClose, onSave, departments }: any) => {
+    const [formData, setFormData] = useState({
+        date: new Date().toISOString().split('T')[0],
+        departmentId: '',
+        description: '',
+        amount: '',
+        paymentMethod: 'cash',
+        notes: ''
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.departmentId || !formData.amount || !formData.description) {
+            alert("برجاء ملء جميع الحقول الإلزامية");
+            return;
+        }
+        onSave({
+            ...formData,
+            amount: parseFloat(formData.amount)
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scaleIn">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-green-50/50">
+                    <h3 className="text-xl font-bold text-green-900">إضافة مبيعات غلة يدوية</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">التاريخ</label>
+                            <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700 text-red-500">القسم *</label>
+                            <select value={formData.departmentId} onChange={e => setFormData({...formData, departmentId: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white" required>
+                                <option value="">اختر القسم</option>
+                                {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-700 text-red-500">البيان / الوصف *</label>
+                        <input type="text" placeholder="مثال: غلة الفترة الصباحية، توريد مبيعات..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700 text-red-500">المبلغ *</label>
+                            <input type="number" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none" required />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold text-slate-700">طريقة الدفع</label>
+                            <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white">
+                                <option value="cash">نقدي</option>
+                                <option value="card">فيزا / شبكة</option>
+                                <option value="bank">تحويل بنكي</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold text-slate-700">الملاحظات</label>
+                        <textarea rows={2} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"></textarea>
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-100 hover:bg-green-700 transition-all mt-4">
+                        حفظ المبيعات
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 };
 
 export default DashboardView;

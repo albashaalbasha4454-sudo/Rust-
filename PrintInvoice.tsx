@@ -28,8 +28,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
     window.print();
   };
 
-  const subtotal = invoice.items.reduce((sum, item) => sum + item.price, 0);
-  const totalDiscount = invoice.items.reduce((sum, item) => sum + (item.discount || 0), 0);
+  const subtotal = invoice.items.reduce((sum, item) => sum + item.lineTotal, 0);
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 p-4 sm:p-8 overflow-y-auto print:p-0 print:bg-white">
@@ -65,6 +64,8 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                 {invoice.customerInfo ? (
                     <div className="space-y-1">
                         <p className="font-bold text-lg text-dark-800">{invoice.customerInfo.name}</p>
+                        <p className="text-dark-600 text-sm">{invoice.customerInfo.phone}</p>
+                        {invoice.customerInfo.address && <p className="text-dark-600 text-xs">{invoice.customerInfo.address}</p>}
                     </div>
                 ) : (
                     <p className="text-dark-600">طلب مباشر</p>
@@ -74,7 +75,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                 <h3 className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-3 border-b border-dark-100 pb-1 text-left">من</h3>
                 <div className="space-y-1">
                     <p className="font-bold text-lg text-dark-800">{shopName}</p>
-                    <p className="text-dark-500 text-xs">نظام إدارة مطابخ الشرق</p>
+                    <p className="text-dark-500 text-xs">{shopAddress}</p>
                 </div>
             </div>
           </div>
@@ -84,41 +85,36 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
             <table className="w-full text-right border-collapse">
                 <thead>
                     <tr className="bg-dark-800 text-white">
-                        <th className="p-3 text-sm font-bold rounded-tr-lg">#</th>
-                        <th className="p-3 text-sm font-bold">الصنف</th>
+                        <th className="p-3 text-sm font-bold rounded-tr-lg">الصنف</th>
                         <th className="p-3 text-sm font-bold text-left">السعر</th>
-                        <th className="p-3 text-sm font-bold text-left">الخصم</th>
+                        <th className="p-3 text-sm font-bold text-center">الكمية</th>
                         <th className="p-3 text-sm font-bold text-left rounded-tl-lg">الإجمالي</th>
                     </tr>
                 </thead>
                 <tbody>
                     {invoice.items.map((item, index) => (
-                        <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid`}>
-                            <td className="p-3 text-dark-400 text-xs">{index + 1}</td>
-                            <td className="p-3 font-bold text-dark-800">
-                                {item.productName}
+                        <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid text-sm`}>
+                            <td className="p-3">
+                                <span className="font-bold text-dark-800">{item.productName}</span>
                                 {item.modifiers && item.modifiers.length > 0 && (
-                                    <div className="text-xs text-dark-500 font-normal mt-1 space-y-0.5">
-                                        {item.modifiers.map((mod, i) => (
-                                            <p key={i}>+ {mod.name}</p>
-                                        ))}
+                                    <div className="text-[10px] text-dark-500 mt-1">
+                                        الإضافات: {item.modifiers.map(m => m.modifierName).join(', ')}
                                     </div>
                                 )}
-                            </td>
-                            <td className="p-3 text-left text-dark-700">
-                                {item.price.toFixed(2)}
-                                {item.modifiers && item.modifiers.length > 0 && (
-                                    <div className="text-xs text-dark-400 mt-1 space-y-0.5 mt-1">
-                                         {item.modifiers.map((mod, i) => (
-                                            <p key={i}>+{mod.price.toFixed(2)}</p>
-                                        ))}
+                                {item.itemNotes && (
+                                    <div className="text-[10px] text-indigo-600 mt-1 italic">
+                                        ملاحظة: {item.itemNotes}
                                     </div>
                                 )}
+                                {item.extraPrice ? (
+                                    <div className="text-[10px] text-emerald-600 mt-1">
+                                        زيادة سعر: {item.extraPrice.toFixed(2)}
+                                    </div>
+                                ) : null}
                             </td>
-                            <td className="p-3 text-left text-red-500">{(item.discount || 0).toFixed(2)}</td>
-                            <td className="p-3 text-left font-bold text-dark-800">
-                                {(item.price - (item.discount || 0) + (item.modifiers?.reduce((s, m) => s + m.price, 0) || 0)).toFixed(2)}
-                            </td>
+                            <td className="p-3 text-left text-dark-700">{item.unitPrice.toFixed(2)}</td>
+                            <td className="p-3 text-center text-dark-700">{item.quantity}</td>
+                            <td className="p-3 text-left font-bold text-dark-800">{item.lineTotal.toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -129,15 +125,15 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
           <div className="flex justify-between items-start gap-10">
             <div className="flex-1">
                 <div className="bg-dark-50 p-6 rounded-2xl border border-dark-100">
-                    <h4 className="text-xs font-black text-dark-400 uppercase tracking-widest mb-4 border-b border-dark-200 pb-2">ملاحظات وتواصل</h4>
-                    <p className="text-xs text-dark-500 leading-relaxed mb-4">
-                        شكراً لزيارتكم مطابخ الشرق. نتمنى لكم وجبة شهية!
+                    <h4 className="text-xs font-black text-dark-400 uppercase tracking-widest mb-4 border-b border-dark-200 pb-2">ملاحظات الطلب</h4>
+                    <p className="text-xs text-dark-800 leading-relaxed mb-4">
+                        {invoice.notes || 'شكراً لزيارتكم مطابخ الشرق. نتمنى لكم وجبة شهية!'}
                     </p>
                     <div className="space-y-4">
                         <div className="flex items-center justify-between group">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 flex items-center justify-center bg-green-500 text-white rounded-lg shadow-sm">
-                                    <i className="material-symbols-outlined text-lg">call</i>
+                                    <span className="material-symbols-outlined text-lg">call</span>
                                 </div>
                                 <span className="font-bold text-dark-700">واتساب</span>
                             </div>
@@ -151,16 +147,12 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                     <span className="text-dark-500">المجموع الفرعي:</span>
                     <span className="font-medium text-dark-800">{subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm p-2 text-red-500">
-                    <span>إجمالي الخصم:</span>
-                    <span>-{totalDiscount.toFixed(2)}</span>
-                </div>
-                {invoice.deliveryFee > 0 && (
+                {invoice.deliveryFee ? (
                     <div className="flex justify-between text-sm p-2">
                         <span className="text-dark-500">رسوم التوصيل:</span>
                         <span className="font-medium text-dark-800">{invoice.deliveryFee.toFixed(2)}</span>
                     </div>
-                )}
+                ) : null}
                 <div className="flex justify-between text-xl font-black p-3 bg-dark-800 text-white rounded-lg shadow-md">
                     <span>الإجمالي:</span>
                     <span>{invoice.total.toFixed(2)}</span>

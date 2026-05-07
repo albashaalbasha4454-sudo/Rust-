@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Expense, FinancialAccount, User } from '../types';
+import type { Expense, FinancialAccount, Department } from '../types';
 import Modal from './Modal';
 import InputField from './common/InputField';
 import Pagination from './common/Pagination';
@@ -7,13 +7,13 @@ import Pagination from './common/Pagination';
 interface ExpensesViewProps {
   expenses: Expense[];
   accounts: FinancialAccount[];
+  departments: Department[];
   addExpense: (expense: Omit<Expense, 'id'>) => void;
-  currentUser?: User;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpense, currentUser }) => {
+const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, departments, addExpense }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const sortedExpenses = useMemo(() => {
@@ -28,10 +28,7 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
   const totalPages = Math.ceil(sortedExpenses.length / ITEMS_PER_PAGE);
 
   const handleSave = (expenseData: Omit<Expense, 'id'>) => {
-    addExpense({
-      ...expenseData,
-      processedBy: currentUser?.username
-    });
+    addExpense(expenseData);
     setIsModalOpen(false);
   };
 
@@ -43,27 +40,32 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
               <h2 className="text-2xl font-bold text-slate-800">سجل المصروفات</h2>
               <p className="text-sm text-slate-500 mt-1">عرض وتصفح جميع المصروفات المسجلة.</p>
             </div>
-            <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+            <button onClick={() => {
+                if (departments.length === 0) {
+                    alert("يجب إضافة قسم أولًا قبل تسجيل المصروفات.");
+                    return;
+                }
+                setIsModalOpen(true);
+            }} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
                <span className="material-symbols-outlined">add</span>
                تسجيل مصروف
             </button>
         </div>
         <div className="space-y-4 md:space-y-0">
             {/* Desktop Header */}
-            <div className="hidden md:grid md:grid-cols-6 gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold px-6 py-3 rounded-t-lg">
+            <div className="hidden md:grid md:grid-cols-5 gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold px-6 py-3 rounded-t-lg">
                 <div>التاريخ</div>
                 <div>البيان</div>
                 <div>المبلغ</div>
                 <div>التصنيف</div>
                 <div>دُفع من</div>
-                <div>بواسطة</div>
             </div>
 
             {/* Expenses List / Cards */}
             <div className="space-y-3 md:space-y-0">
             {paginatedExpenses.map((expense) => (
                 <div key={expense.id} className={`
-                    md:grid md:grid-cols-6 md:gap-4 md:items-center
+                    md:grid md:grid-cols-5 md:gap-4 md:items-center
                     p-4 md:px-6 md:py-3 border-b border-slate-200 
                     hover:bg-slate-50 bg-white md:bg-transparent
                     block rounded-lg md:rounded-none shadow-sm md:shadow-none
@@ -76,21 +78,16 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
 
                     {/* Desktop Data Cells */}
                     <div className="hidden md:block text-sm">{new Date(expense.date).toLocaleDateString('ar-EG')}</div>
-                    <div className="hidden md:block font-semibold text-sm">
-                        {expense.description}
-                        {expense.notes && <div className="text-xs text-slate-400 mt-1">{expense.notes}</div>}
-                    </div>
+                    <div className="hidden md:block font-semibold text-sm">{expense.description}</div>
                     <div className="hidden md:block font-bold text-red-600 text-sm">{expense.amount.toFixed(2)}</div>
                     <div className="hidden md:block text-sm">{expense.category || '-'}</div>
                     <div className="hidden md:block text-sm">{accounts.find(a => a.id === expense.accountId)?.name || 'غير معروف'}</div>
-                    <div className="hidden md:block text-sm text-slate-500">{expense.processedBy || '-'}</div>
 
                     {/* Mobile Grid Data */}
                     <div className="grid grid-cols-2 gap-y-2 text-xs md:hidden pt-2 border-t border-slate-100">
                         <div><span className="text-slate-500">التاريخ:</span> {new Date(expense.date).toLocaleDateString('ar-EG')}</div>
                         <div><span className="text-slate-500">التصنيف:</span> {expense.category || '-'}</div>
-                        <div><span className="text-slate-500">دُفع من:</span> {accounts.find(a => a.id === expense.accountId)?.name || 'غير معروف'}</div>
-                        <div><span className="text-slate-500">بواسطة:</span> {expense.processedBy || '-'}</div>
+                        <div className="col-span-2"><span className="text-slate-500">دُفع من:</span> {accounts.find(a => a.id === expense.accountId)?.name || 'غير معروف'}</div>
                     </div>
                 </div>
             ))}
@@ -112,6 +109,7 @@ const ExpensesView: React.FC<ExpensesViewProps> = ({ expenses, accounts, addExpe
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
           accounts={accounts}
+          departments={departments}
         />
       )}
     </div>
@@ -122,12 +120,13 @@ const ExpenseModal: React.FC<{
   onClose: () => void;
   onSave: (expense: Omit<Expense, 'id'>) => void;
   accounts: FinancialAccount[];
-}> = ({ onClose, onSave, accounts }) => {
+  departments: Department[];
+}> = ({ onClose, onSave, accounts, departments }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [notes, setNotes] = useState('');
   const [accountId, setAccountId] = useState(accounts.find(a => a.type === 'cash')?.id || '');
+  const [departmentId, setDepartmentId] = useState(departments[0]?.id || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -138,13 +137,14 @@ const ExpenseModal: React.FC<{
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) newErrors.amount = 'المبلغ يجب أن يكون رقماً موجباً.';
     if (!accountId) newErrors.accountId = 'يجب تحديد حساب الدفع.';
+    if (!departmentId) newErrors.departmentId = 'يجب تحديد القسم.';
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
     
-    onSave({ description, amount: parseFloat(amount), category, date: new Date(date).toISOString(), accountId, notes });
+    onSave({ description, amount: parseFloat(amount), category, date: new Date(date).toISOString(), accountId, departmentId });
   };
 
   return (
@@ -154,16 +154,19 @@ const ExpenseModal: React.FC<{
         <InputField id="amount" label="المبلغ" value={amount} onChange={(e) => setAmount(e.target.value)} type="number" error={errors.amount}/>
         <InputField id="category" label="التصنيف (اختياري)" value={category} onChange={(e) => setCategory(e.target.value)} />
         <div>
+            <label htmlFor="departmentId" className="block text-slate-700 text-sm font-bold mb-2">القسم</label>
+            <select id="departmentId" value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="w-full p-2 border rounded-lg border-slate-300">
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            {errors.departmentId && <p className="text-red-500 text-xs italic mt-1">{errors.departmentId}</p>}
+        </div>
+        <div>
             <label htmlFor="accountId" className="block text-slate-700 text-sm font-bold mb-2">الدفع من حساب</label>
             <select id="accountId" value={accountId} onChange={e => setAccountId(e.target.value)} className={`w-full p-2 border rounded-lg bg-white ${errors.accountId ? 'border-red-500' : 'border-slate-300'}`}>
                 <option value="">-- اختر --</option>
                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
             </select>
             {errors.accountId && <p className="text-red-500 text-xs italic mt-1">{errors.accountId}</p>}
-        </div>
-        <div>
-            <label htmlFor="notes" className="block text-slate-700 text-sm font-bold mb-2">ملاحظات شاملة</label>
-            <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white" rows={3} placeholder="اكتب تفاصيل المصروف هنا..."></textarea>
         </div>
         <InputField id="date" label="التاريخ" value={date} onChange={(e) => setDate(e.target.value)} type="date" />
         <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-200">

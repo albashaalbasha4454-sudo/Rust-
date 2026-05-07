@@ -56,7 +56,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ invoice, onClose, onProcessRe
                             </div>
                             <div>
                                 <p className="font-bold text-slate-800 text-sm">{item.productName}</p>
-                                <p className="text-[10px] text-slate-500">{(item.price - (item.discount || 0)).toFixed(2)}</p>
+                                <p className="text-[10px] text-slate-500">{item.lineTotal.toFixed(2)}</p>
                             </div>
                         </div>
                     </div>

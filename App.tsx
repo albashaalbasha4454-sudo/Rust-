@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import useAuth from './hooks/useAuth';
-import { initialUsers, initialProducts, initialCustomers, initialAccounts } from './initialData';
+import { initialUsers, initialProducts, initialCustomers, initialAccounts, initialDepartments } from './initialData';
 
-import type { Product, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout } from './types';
+import type { Product, Department, Modifier, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout, ActivityLog } from './types';
 
+import DepartmentsView from './components/DepartmentsView';
+import ActivityLogView from './components/ActivityLogView';
 import LoginView from './components/LoginView';
 import Header from './components/Header';
 import { Logo } from './components/Logo';
@@ -15,6 +17,7 @@ import SettingsView from './components/SettingsView';
 import UsersView from './components/UsersView';
 import ReturnRequestsView from './components/ReturnRequestsView';
 import ExpensesView from './components/ExpensesView';
+import AIChatAssistant from './components/AIChatAssistant';
 import CustomersView from './components/CustomersView';
 import FinanceView from './components/FinanceView';
 import OrdersView from './components/OrdersView';
@@ -32,9 +35,49 @@ const simpleHash = (password: string, salt: string) => `hashed_${password}_with_
 const App: React.FC = () => {
     // --- STATE MANAGEMENT ---
     const [users, setUsers] = useLocalStorage<User[]>('users', initialUsers);
-    const { currentUser, login, logout } = useAuth(users);
+    const { currentUser, login: authLogin, logout: authLogout } = useAuth(users);
+
+    const logActivity = (action: string, details: string, metaData?: string) => {
+        // We need to pass the user details if not yet logged in (for login action)
+        // or get from currentUser for other actions.
+        setActivityLog(prev => [{
+            id: `log-${Date.now()}`,
+            userId: currentUser?.id || 'system',
+            username: currentUser?.username || 'system',
+            action,
+            timestamp: new Date().toISOString(),
+            details,
+            metaData
+        }, ...prev]);
+    };
+
+    const login = async (username: string, password: string) => {
+        const success = await authLogin(username, password);
+        if (success) {
+            logActivity('login', `تم تسجيل دخول المستخدم: ${username}`);
+        }
+        return success;
+    };
+
+    const logout = () => {
+        logActivity('logout', `تم تسجيل خروج المستخدم: ${currentUser?.username || 'غير معروف'}`);
+        authLogout();
+    };
 
     const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
+    const [modifiers, setModifiers] = useLocalStorage<Modifier[]>('modifiers', []);
+    const [departments, setDepartments] = useLocalStorage<Department[]>('departments', initialDepartments);
+
+    // Migration to replace old products with new ones
+    useEffect(() => {
+        const hasOldProducts = products.some(p => p.id === 'prod-1' || p.id === 'prod-8');
+        const isVerySmall = products.length > 0 && products.length <= 8;
+        if (hasOldProducts || isVerySmall) {
+            setProducts(initialProducts);
+            setDepartments(initialDepartments);
+        }
+    }, [products.length]);
+    const [activityLog, setActivityLog] = useLocalStorage<ActivityLog[]>('activityLog', []);
     const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
     const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', []);
     const [returnRequests, setReturnRequests] = useLocalStorage<ReturnRequest[]>('returnRequests', []);
@@ -96,12 +139,81 @@ const App: React.FC = () => {
         setTransactions(prev => [...prev, newTransaction]);
     }, [setTransactions]);
 
-    // --- CORE BUSINESS LOGIC ---
-    // Products
+    // --- DEPARTMENT HANDLERS ---
+    const addDepartment = (dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
+        setDepartments(prev => [...prev, {...dept, id: `dept-${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()}]);
+        logActivity('أضافة قسم', `تم إضافة قسم جديد: ${dept.name}`);
+    };
+    const updateDepartment = (id: string, dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
+        setDepartments(prev => prev.map(d => d.id === id ? {...d, ...dept, updatedAt: new Date().toISOString()} : d));
+        logActivity('تعديل قسم', `تم تعديل القسم: ${dept.name}`);
+    };
+    const deleteDepartment = (id: string) => {
+        setDepartments(prev => prev.filter(d => d.id !== id));
+    };
+    
+    // Modifier Handlers
+    const addModifier = (modifier: Omit<Modifier, 'id' | 'createdAt' | 'updatedAt'>) => {
+        setModifiers(prev => [...prev, {...modifier, id: `mod-${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()}]);
+    };
+    const updateModifier = (id: string, modifier: Omit<Modifier, 'id' | 'createdAt' | 'updatedAt'>) => {
+        setModifiers(prev => prev.map(m => m.id === id ? {...m, ...modifier, updatedAt: new Date().toISOString()} : m));
+    };
+    const deleteModifier = (id: string) => {
+        setModifiers(prev => prev.filter(m => m.id !== id));
+    };
+
     const addProduct = (product: Omit<Product, 'id'>) => {
         const newProduct = { ...product, id: `prod-${Date.now()}` };
         setProducts(prev => [...prev, newProduct]);
+        logActivity('إضافة صنف', `تم إضافة صنف جديد: ${newProduct.name}`);
         return newProduct;
+    };
+
+    const bulkAddProducts = (newProducts: Array<Partial<Product>>) => {
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        setProducts(prev => {
+            const updated = [...prev];
+            newProducts.forEach(pInput => {
+                if (!pInput.name) return;
+
+                const name = pInput.name.trim();
+                const departmentId = pInput.departmentId || 'misc';
+                const departmentName = pInput.departmentName || 'عام';
+
+                // Check for duplicates
+                const exists = updated.find(p => p.name === name && p.departmentId === departmentId);
+                if (exists) {
+                    skippedCount++;
+                    return;
+                }
+
+                const price = typeof pInput.price === 'string' ? parseFloat(pInput.price) : (pInput.price || 0);
+
+                const product: Product = {
+                    id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    name,
+                    departmentId,
+                    departmentName,
+                    price: price,
+                    category: pInput.category || departmentName,
+                    description: pInput.description || '',
+                    status: (pInput.status as any) || 'available',
+                    reviewStatus: price > 0 ? 'ok' : 'needs_price',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                updated.push(product);
+                addedCount++;
+            });
+            return updated;
+        });
+
+        logActivity('إضافة أصناف بالجملة', `تم إضافة ${addedCount} صنف جديد وتخطي ${skippedCount} مكرر.`);
+        return { added: addedCount, skipped: skippedCount };
     };
     const updateProduct = (id: string, updatedProduct: Omit<Product, 'id'>) => {
         setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedProduct, id } : p));
@@ -149,7 +261,7 @@ const App: React.FC = () => {
     const createOrder = (type: OrderType, items: InvoiceItem[], customerInfo?: Invoice['customerInfo'], deliveryFee: number = 0, source?: Invoice['source'], notes?: string) => {
         if (!currentUser) throw new Error("No user is logged in.");
 
-        const total = items.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0) + deliveryFee;
+        const total = items.reduce((sum, item) => sum + item.lineTotal, 0) + deliveryFee;
         
         const isImmediate = type === 'sale';
         const isRestaurantOrder = type === 'dine_in' || type === 'takeaway';
@@ -258,7 +370,7 @@ const App: React.FC = () => {
     const processReturn = (originalInvoiceId: string, returnItems: InvoiceItem[]) => {
         if (!currentUser) return;
         if (!window.confirm('هل أنت متأكد من إتمام عملية الإرجاع؟ سيتم استرداد المبلغ.')) return;
-        const total = returnItems.reduce((sum, item) => sum + (item.price - (item.discount || 0)), 0);
+        const total = returnItems.reduce((sum, item) => sum + item.lineTotal, 0);
         const newReturnInvoice: Invoice = {
             id: `ret-${Date.now()}`,
             date: new Date().toISOString(),
@@ -318,17 +430,73 @@ const App: React.FC = () => {
     };
 
     // Expenses
-    const addExpense = (expense: Omit<Expense, 'id'>) => {
-        if (!window.confirm(`هل أنت متأكد من تسجيل مصروف بمبلغ ${expense.amount}؟`)) return;
-        const newExpense = { ...expense, id: `exp-${Date.now()}` };
+    const addExpense = (expenseData: Omit<Expense, 'id'>) => {
+        const newExpense: Expense = { ...expenseData, id: `exp-${Date.now()}` };
         setExpenses(prev => [...prev, newExpense]);
+        
+        // Treasury transaction
         addFinancialTransaction({
-            description: newExpense.description,
+            description: `مصروف: ${newExpense.description} (${newExpense.status === 'completed' ? 'مكتمل' : 'معلق'})`,
             amount: newExpense.amount,
             type: 'expense',
             fromAccountId: newExpense.accountId,
             category: newExpense.category
         });
+
+        logActivity('تسجيل مصروف', `تم تسجيل مصروف بقيمة ${newExpense.amount} - البيان: ${newExpense.description}`);
+        return newExpense;
+    };
+
+    const addManualSale = (saleData: { 
+        date: string, 
+        amount: number, 
+        departmentId: string, 
+        description: string, 
+        paymentMethod: string,
+        notes?: string 
+    }) => {
+        if (!currentUser) return;
+        
+        const dept = departments.find(d => d.id === saleData.departmentId);
+        
+        const newInvoice: Invoice = {
+            id: `man-${Date.now()}`,
+            date: saleData.date,
+            paidDate: saleData.date,
+            type: 'sale',
+            status: 'completed',
+            paymentStatus: 'paid',
+            total: saleData.amount,
+            processedBy: currentUser.username,
+            notes: saleData.notes,
+            items: [{
+                productId: 'manual-sale',
+                productName: saleData.description,
+                departmentId: saleData.departmentId,
+                departmentName: dept?.name || 'غير محدد',
+                quantity: 1,
+                basePrice: saleData.amount,
+                modifiers: [],
+                modifiersTotal: 0,
+                unitPrice: saleData.amount,
+                lineTotal: saleData.amount
+            }]
+        };
+
+        setInvoices(prev => [...prev, newInvoice]);
+
+        // Treasury transaction
+        addFinancialTransaction({
+            description: `إيراد مبيعات يدوية/غلة: ${saleData.description}`,
+            amount: saleData.amount,
+            type: 'sale_income',
+            toAccountId: 'cash-default', // Always to main till by default as per request
+            relatedInvoiceId: newInvoice.id,
+            category: 'مبيعات'
+        });
+
+        logActivity('تسجيل مبيعات يدوية', `تم تسجيل غلة بقيمة ${saleData.amount} لقسم ${dept?.name || 'غير محدد'}`);
+        return newInvoice;
     };
 
     const deleteExpense = (id: string) => {
@@ -402,19 +570,21 @@ const App: React.FC = () => {
     }
 
     const views: { [key: string]: {element: React.ReactNode, label: string, icon: string, roles: Array<'admin' | 'cashier'>} } = {
-        dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
-        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} transactions={transactions} tillCloseouts={tillCloseouts} users={users} accountBalances={accountBalances} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
+        dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} accounts={accounts} departments={departments} onAddManualSale={addManualSale} onAddExpense={addExpense} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
+        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
         financialSummary: { element: <FinancialSummaryView invoices={invoices} expenses={expenses} transactions={transactions} accountBalances={accountBalances} />, label: "الملخص المالي", icon: "summarize", roles: ['admin'] },
-        pos: { element: <POSView products={products} customers={customers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
+        pos: { element: <POSView products={products} customers={customers} modifiers={modifiers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
         orders: { element: <OrdersView invoices={invoices} users={users} onUpdateStatus={updateOrderStatus} onConvertToSale={onConvertToSale} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الطلبات", icon: "receipt_long", roles: ['admin', 'cashier'] },
         invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
-        products: { element: <ProductsView products={products} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
+        departments: { element: <DepartmentsView departments={departments} addDepartment={addDepartment} updateDepartment={updateDepartment} deleteDepartment={deleteDepartment} />, label: "الأقسام", icon: "category", roles: ['admin'] },
+        products: { element: <ProductsView products={products} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} onBulkAdd={bulkAddProducts} departments={departments} modifiers={modifiers} addModifier={addModifier} updateModifier={updateModifier} deleteModifier={deleteModifier} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
         returnRequests: { element: <ReturnRequestsView requests={returnRequests} approveRequest={approveRequest} rejectRequest={rejectRequest} />, label: "طلبات الإرجاع", icon: "rule", roles: ['admin'] },
-        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} currentUser={currentUser} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
+        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} departments={departments} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
         customers: { element: <CustomersView customers={customers} addCustomer={addCustomer} updateCustomer={updateCustomer} deleteCustomer={deleteCustomer} />, label: "العملاء", icon: "groups", roles: ['admin'] },
         finance: { element: <FinanceView accounts={accounts} accountBalances={accountBalances} transactions={transactions} budgets={budgets} onSaveAccount={onSaveAccount} onSaveTransaction={addFinancialTransaction} onSaveBudget={(b) => setBudgets(p=>[...p, {...b, id: `budget-${Date.now()}`}])} />, label: "الخزينة", icon: "account_balance", roles: ['admin'] },
         tillCloseouts: { element: <TillCloseoutsView tillCloseouts={tillCloseouts} />, label: "تقارير الصناديق", icon: "archive", roles: ['admin'] },
         users: { element: <UsersView users={users} addUser={addUser} updateUser={updateUser} deleteUser={deleteUser} currentUser={currentUser} />, label: "المستخدمون", icon: "manage_accounts", roles: ['admin'] },
+        activityLog: { element: <ActivityLogView logs={activityLog} />, label: "سجل النشاط", icon: "history", roles: ['admin'] },
         cashierTools: { element: <CashierToolsView currentUser={currentUser} />, label: "إدارة البيانات", icon: "database", roles: ['cashier'] },
         settings: { element: <SettingsView onUpdatePrices={updatePricesBatch} />, label: "الإعدادات", icon: "settings", roles: ['admin'] },
     };
@@ -430,8 +600,8 @@ const App: React.FC = () => {
         );
     };
     
-    const adminSidebarOrder = ['dashboard', 'reports', 'financialSummary', 'pos', 'orders', 'invoices', 'returnRequests', 'products', 'expenses', 'customers', 'finance', 'tillCloseouts', 'users', 'settings'];
-    const cashierSidebarOrder = ['pos', 'orders', 'invoices', 'expenses', 'cashierTools'];
+    const adminSidebarOrder = ['dashboard', 'reports', 'financialSummary', 'pos', 'orders', 'invoices', 'departments', 'returnRequests', 'products', 'expenses', 'customers', 'finance', 'tillCloseouts', 'users', 'activityLog', 'settings'];
+    const cashierSidebarOrder = ['pos', 'orders', 'invoices', 'cashierTools'];
 
     const sidebarOrder = currentUser.role === 'admin' ? adminSidebarOrder : cashierSidebarOrder;
 
@@ -468,11 +638,26 @@ const App: React.FC = () => {
                 </main>
             </div>
             {invoiceToPrint && <PrintInvoice invoice={invoiceToPrint} onClose={() => setInvoiceToPrint(null)} shopName={shopName} shopAddress={shopAddress} />}
-
+            {currentUser.role === 'admin' && 
+                <AIChatAssistant 
+                    products={products}
+                    invoices={invoices}
+                    expenses={expenses}
+                    customers={customers}
+                    addProduct={addProduct}
+                    updateProduct={updateProduct}
+                    deleteProduct={deleteProduct}
+                    addExpense={(exp) => addExpense({...exp, accountId: 'cash-default'})}
+                    deleteExpense={deleteExpense}
+                    addCustomer={addCustomer}
+                    updateCustomer={updateCustomer}
+                    deleteCustomer={deleteCustomer}
+                    onCompleteSale={onCompleteSale}
+                />
+            }
             {isCloseTillModalOpen && currentUser && (
                 <CloseTillModal
                     invoices={invoices}
-                    expenses={expenses}
                     users={users}
                     currentUser={currentUser}
                     onClose={() => setIsCloseTillModalOpen(false)}

@@ -48,9 +48,9 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
           };
         }
 
-        // Increment by 1 since each item in the array represents one unit
-        map[item.productName].quantity += 1;
-        map[item.productName].total += (item.price - (item.discount || 0));
+        // Increment by quantity
+        map[item.productName].quantity += item.quantity;
+        map[item.productName].total += item.lineTotal;
       });
     });
 
@@ -93,35 +93,31 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
     setInvoiceToRequestReturn(null);
   };
 
-  const typeMap: Record<OrderType, { label: string, className: string, icon: string }> = {
-    sale: { label: 'بيع سريع', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'point_of_sale' },
-    delivery: { label: 'توصيل', className: 'bg-sky-50 text-sky-700 border-sky-200', icon: 'local_shipping' },
-    reservation: { label: 'حجز', className: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'event_seat' },
-    return: { label: 'مرتجع', className: 'bg-red-50 text-red-700 border-red-200', icon: 'keyboard_return' },
-    dine_in: { label: 'صالة', className: 'bg-orange-50 text-orange-700 border-orange-200', icon: 'restaurant' },
-    takeaway: { label: 'سفري', className: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'takeout_dining' },
+  const typeMap: Record<OrderType, { label: string, className: string }> = {
+    sale: { label: 'بيع سريع', className: 'bg-green-100 text-green-800' },
+    delivery: { label: 'توصيل', className: 'bg-sky-100 text-sky-800' },
+    reservation: { label: 'حجز', className: 'bg-indigo-100 text-indigo-800' },
+    return: { label: 'مرتجع', className: 'bg-red-100 text-red-800' },
+    dine_in: { label: 'صالة', className: 'bg-teal-100 text-teal-800' },
+    takeaway: { label: 'سفري', className: 'bg-amber-100 text-amber-800' },
   };
   
-  const statusMap: Record<OrderStatus, { label: string, className: string, dot: string }> = {
-    pending: { label: 'قيد الانتظار', className: 'bg-yellow-50 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400' },
-    confirmed: { label: 'تم التأكيد', className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-400' },
-    delivered: { label: 'تم التوصيل', className: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-400' },
-    completed: { label: 'مكتمل', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
-    cancelled: { label: 'ملغي', className: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
+  const statusMap: Record<OrderStatus, { label: string, className: string }> = {
+    pending: { label: 'قيد الانتظار', className: 'bg-yellow-100 text-yellow-800' },
+    confirmed: { label: 'تم التأكيد', className: 'bg-blue-100 text-blue-800' },
+    delivered: { label: 'تم التوصيل', className: 'bg-sky-100 text-sky-800' },
+    completed: { label: 'مكتمل', className: 'bg-green-100 text-green-800' },
+    cancelled: { label: 'ملغي', className: 'bg-gray-100 text-gray-800' },
   };
 
-  const paymentMap: Record<PaymentStatus, { label: string, className: string, dot: string }> = {
-    paid: { label: 'مدفوع', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
-    unpaid: { label: 'غير مدفوع', className: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-400' },
-    partial: { label: 'جزئي', className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
+  const paymentMap: Record<PaymentStatus, { label: string, className: string }> = {
+    paid: { label: 'مدفوع', className: 'bg-green-100 text-green-800' },
+    unpaid: { label: 'غير مدفوع', className: 'bg-red-100 text-red-800' },
+    partial: { label: 'جزئي', className: 'bg-orange-100 text-orange-800' },
   };
   
-  const Badge: React.FC<{ data: { label: string, className: string, icon?: string, dot?: string } }> = ({ data }) => (
-    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full border flex items-center justify-center gap-1.5 w-fit shadow-sm ${data.className}`}>
-      {data.icon && <span className="material-symbols-outlined text-[14px]">{data.icon}</span>}
-      {data.dot && <span className={`w-1.5 h-1.5 rounded-full ${data.dot}`}></span>}
-      {data.label}
-    </span>
+  const Badge: React.FC<{ data: { label: string, className: string } }> = ({ data }) => (
+    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${data.className}`}>{data.label}</span>
   );
 
   return (
@@ -327,7 +323,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ invoices, users, onUpdateStatus
                                         {inv.items.map(item => (
                                             <li key={item.productId}>
                                                 {item.productName}
-                                                {item.notes && <span className="text-indigo-500 text-[10px] mr-2 italic">[{item.notes}]</span>}
+                                                {item.itemNotes && <span className="text-indigo-500 text-[10px] mr-2 italic">[{item.itemNotes}]</span>}
                                             </li>
                                         ))}
                                     </ul>

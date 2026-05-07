@@ -1,16 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import type { Product } from '../types';
+import type { Product, Modifier, Department } from '../types';
 import Modal from './Modal';
 import InputField from './common/InputField';
 import Pagination from './common/Pagination';
-import { GoogleGenAI, Type } from '@google/genai';
+import * as XLSX from 'xlsx';
 
 interface ProductsViewProps {
   products: Product[];
+  modifiers: Modifier[];
+  departments: Department[];
   addProduct: (product: Omit<Product, 'id'>) => void;
   updateProduct: (id: string, product: Omit<Product, 'id'>) => void;
   deleteProduct: (id: string) => void;
   onBatchUpdate: (productIds: string[], discountPercent: number) => void;
+  onBulkAdd: (products: Array<Partial<Product>>) => { added: number, skipped: number };
+  addModifier: (modifier: Omit<Modifier, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateModifier: (id: string, modifier: Omit<Modifier, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  deleteModifier: (id: string) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -29,8 +35,9 @@ const StatCard = ({ title, value, icon, valueClassName }: { title: string; value
 );
 
 
-const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updateProduct, deleteProduct, onBatchUpdate }) => {
+const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, departments, addProduct, updateProduct, deleteProduct, onBatchUpdate, onBulkAdd, addModifier, updateModifier, deleteModifier }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -138,6 +145,23 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
     setSelectedProducts(new Set());
   };
 
+  const handleExport = () => {
+    const data = products.map(p => ({
+        'اسم الصنف': p.name,
+        'القسم': p.departmentName || p.category || 'عام',
+        'السعر': p.price,
+        'حالة التسعير': p.reviewStatus === 'needs_price' ? 'يحتاج تسعير' : 'مكتمل',
+        'الحالة': p.status === 'available' ? 'متاح' : 'غير متاح',
+        'الوصف': p.description || '',
+        'ملاحظات': ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الأصناف");
+    XLSX.writeFile(wb, `منتجات_المطعم_${new Date().toLocaleDateString('ar-EG')}.xlsx`);
+  };
+
   const clearFilters = () => {
       setSearchTerm('');
       setCategoryFilter('all');
@@ -149,7 +173,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
       <div className="bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-white flex justify-between items-center gap-4">
+        <div className="p-4 border-b border-slate-100 bg-white flex flex-wrap justify-between items-center gap-4">
             <div className="flex items-center gap-3">
                 <button 
                     onClick={() => setIsFilterExpanded(!isFilterExpanded)}
@@ -159,11 +183,27 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
                     تصفية
                     <span className={`material-symbols-outlined transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}>expand_more</span>
                 </button>
+                <button 
+                    onClick={handleExport}
+                    className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium text-sm"
+                >
+                    <span className="material-symbols-outlined">download</span>
+                    تصدير للأكسل
+                </button>
             </div>
-            <button onClick={() => handleOpenModal()} className="flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm">
-                <span className="material-symbols-outlined">add</span>
-                إضافة منتج
-            </button>
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setIsBulkAddOpen(true)} 
+                    className="flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-200 text-sm"
+                >
+                    <span className="material-symbols-outlined">view_list</span>
+                    تعبئة الأصناف
+                </button>
+                <button onClick={() => handleOpenModal()} className="flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm">
+                    <span className="material-symbols-outlined">add</span>
+                    إضافة منتج
+                </button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4 p-6 bg-slate-50 border-b border-slate-100">
@@ -244,78 +284,103 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
                 </div>
             </div>
         )}
-        <div className="overflow-x-auto w-full">
-            <table className="w-full text-right border-collapse min-w-[800px]">
-                <thead>
-                    <tr className="bg-slate-50 text-slate-500 border-y border-slate-200 text-xs uppercase font-bold tracking-wider">
-                        <th className="py-4 px-4 w-12 text-center">
-                            <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer" />
-                        </th>
-                        <th className="py-4 px-4 w-20 text-center">الصورة</th>
-                        <th className="py-4 px-4 text-right">المنتج</th>
-                        <th className="py-4 px-4 text-center">النوع</th>
-                        <th className="py-4 px-4 text-left">السعر</th>
-                        <th className="py-4 px-4 text-center w-28">الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                    {paginatedProducts.map((p) => (
-                        <tr key={p.id} className={`hover:bg-indigo-50/30 transition-colors group ${selectedProducts.has(p.id) ? 'bg-indigo-50/50' : ''}`}>
-                            <td className="py-3 px-4 text-center align-middle">
-                                <input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => handleSelectProduct(p.id)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer" />
-                            </td>
-                            <td className="py-3 px-4 text-center align-middle">
-                                <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-200 mx-auto group-hover:border-indigo-200 transition-colors shadow-sm">
-                                    {p.image ? (
-                                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <span className="material-symbols-outlined text-slate-300 text-[24px]">image</span>
-                                    )}
-                                </div>
-                            </td>
-                            <td className="py-3 px-4 text-right align-middle">
-                                <div>
-                                    <div className="font-bold text-slate-800 text-sm group-hover:text-indigo-700 transition-colors">{p.name}</div>
-                                    {p.category && <div className="text-xs text-slate-400 mt-0.5">{p.category}</div>}
-                                </div>
-                            </td>
-                            <td className="py-3 px-4 text-center align-middle">
-                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide ${p.type === 'service' ? 'bg-sky-100 text-sky-700 border border-sky-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-                                    {p.type === 'service' ? 'خدمة' : 'منتج'}
-                                </span>
-                            </td>
-                            <td className="py-3 px-4 text-left align-middle">
-                                {p.salePrice ? (
-                                    <div className="flex flex-col items-end">
-                                        <span className="line-through text-slate-400 text-[11px] font-mono">${p.price.toFixed(2)}</span>
-                                        <span className="font-bold text-emerald-600 text-sm font-mono">${p.salePrice.toFixed(2)}</span>
-                                    </div>
-                                ) : p.discountPercent ? (
-                                    <div className="flex flex-col items-end">
-                                        <span className="line-through text-slate-400 text-[11px] font-mono">${p.price.toFixed(2)}</span>
-                                        <div className="flex items-center gap-1.5 justify-end">
-                                            <span className="font-bold text-orange-600 text-sm font-mono">${(p.price * (1 - p.discountPercent / 100)).toFixed(2)}</span>
-                                            <span className="text-[10px] bg-orange-100 text-orange-700 px-1 py-0.5 rounded font-bold">-{p.discountPercent}%</span>
-                                        </div>
-                                    </div>
+        <div className="space-y-2 md:space-y-0">
+            {/* Desktop Header */}
+            <div className="hidden md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider px-4 py-4 border-b border-slate-200">
+                <div className="text-center"><input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /></div>
+                <div className="w-12">الصورة</div>
+                <div>المنتج</div>
+                <div className="text-center">النوع</div>
+                <div className="text-right">السعر</div>
+                <div className="text-center">الإجراءات</div>
+            </div>
+
+            {/* Product List / Cards */}
+            <div className="space-y-3 md:space-y-0 divide-y divide-slate-100">
+            {paginatedProducts.map((p) => (
+                <div key={p.id} className={`
+                    md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] md:gap-4 md:items-center
+                    p-4 md:px-4 md:py-3 
+                    hover:bg-indigo-50/30 ${selectedProducts.has(p.id) ? 'bg-indigo-50/50' : 'bg-white md:bg-transparent'}
+                    block rounded-lg md:rounded-none shadow-sm md:shadow-none transition-colors
+                `}>
+                    {/* Checkbox */}
+                    <div className="hidden md:flex md:justify-center">
+                        <input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => handleSelectProduct(p.id)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                    </div>
+
+                    {/* Image Desktop */}
+                    <div className="hidden md:block">
+                        <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                            {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                <span className="material-symbols-outlined text-slate-400">image</span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Mobile Header: Checkbox, Name, Actions */}
+                    <div className="flex justify-between items-start mb-4 md:hidden">
+                        <div className="flex items-center gap-3">
+                            <input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => handleSelectProduct(p.id)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                                {p.image ? (
+                                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 ) : (
-                                    <span className="font-bold text-slate-800 text-sm font-mono">${p.price.toFixed(2)}</span>
+                                    <span className="material-symbols-outlined text-slate-400 text-sm">image</span>
                                 )}
-                            </td>
-                            <td className="py-3 px-4 text-center align-middle">
-                                <div className="flex items-center justify-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 transform sm:-translate-x-2 sm:group-hover:translate-x-0">
-                                    <button onClick={() => handleOpenModal(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all bg-slate-50" title="تعديل">
-                                        <span className="material-symbols-outlined text-[18px] block">edit</span>
-                                    </button>
-                                    <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-white hover:text-red-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all bg-slate-50" title="حذف">
-                                        <span className="material-symbols-outlined text-[18px] block">delete</span>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                            </div>
+                            <h3 className="font-bold text-slate-800 text-base">{p.name}</h3>
+                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => handleOpenModal(p)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-blue-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="تعديل"><span className="material-symbols-outlined text-lg">edit</span></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-red-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="حذف"><span className="material-symbols-outlined text-lg">delete</span></button>
+                        </div>
+                    </div>
+                    
+                    {/* Desktop Name */}
+                    <div className="hidden md:block font-semibold text-slate-800">
+                        <div className="flex items-center gap-2">
+                            <span>{p.name}</span>
+                            {p.reviewStatus === 'needs_price' && (
+                                <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[12px]">info</span>
+                                    يحتاج تسعير
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Mobile Grid Data */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:hidden">
+                        <div><span className="text-slate-500">النوع:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.type === 'service' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>{p.type === 'service' ? 'خدمة' : 'منتج'}</span></div>
+                        <div><span className="text-slate-500">السعر:</span> <span>{p.salePrice ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-green-600">{p.salePrice.toFixed(2)}</span></> : p.discountPercent ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-orange-600">{(p.price * (1 - p.discountPercent / 100)).toFixed(2)}</span> <span className="text-[10px] text-orange-500">({p.discountPercent}%)</span></> : p.price.toFixed(2)}</span></div>
+                    </div>
+
+                    {/* Desktop Data Cells */}
+                    <div className="hidden md:block text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.type === 'service' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>{p.type === 'service' ? 'خدمة' : 'منتج'}</span></div>
+                    <div className="hidden md:block text-right">
+                        {p.salePrice ? (
+                            <div className="flex flex-col items-end">
+                                <span className="line-through text-slate-400 text-xs">{p.price.toFixed(2)}</span>
+                                <span className="font-bold text-green-600">{p.salePrice.toFixed(2)}</span>
+                            </div>
+                        ) : p.discountPercent ? (
+                            <div className="flex flex-col items-end">
+                                <span className="line-through text-slate-400 text-xs">{p.price.toFixed(2)}</span>
+                                <span className="font-bold text-orange-600">{(p.price * (1 - p.discountPercent / 100)).toFixed(2)}</span>
+                                <span className="text-[10px] text-orange-500">-{p.discountPercent}%</span>
+                            </div>
+                        ) : <span className="font-medium text-slate-800">{p.price.toFixed(2)}</span>}
+                    </div>
+                    <div className="hidden md:flex items-center justify-center gap-2">
+                        <button onClick={() => handleOpenModal(p)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-blue-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="تعديل"><span className="material-symbols-outlined text-lg">edit</span></button>
+                        <button onClick={() => handleDelete(p.id)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-red-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="حذف"><span className="material-symbols-outlined text-lg">delete</span></button>
+                    </div>
+                </div>
+            ))}
+            </div>
             {filteredProducts.length === 0 && (
                 <div className="text-center py-16 px-4">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 mb-4">
@@ -332,8 +397,155 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, addProduct, updat
         </div>
       </div>
       {isModalOpen && <ProductModal product={editingProduct} onClose={handleCloseModal} onSave={handleSave} />}
+      {isBulkAddOpen && (
+        <BulkAddModal 
+          departments={departments} 
+          onClose={() => setIsBulkAddOpen(false)} 
+          onSave={(newProds) => {
+            const result = onBulkAdd(newProds);
+            alert(`تمت العملية بنجاح! \nتم إضافة: ${result.added} \nتم تخطي المكرر: ${result.skipped}`);
+            setIsBulkAddOpen(false);
+          }} 
+        />
+      )}
     </div>
   );
+};
+
+const BulkAddModal = ({ onClose, onSave, departments }: any) => {
+    const [rows, setRows] = useState<any[]>([
+        { name: '', departmentId: '', price: '0', description: '', notes: '' }
+    ]);
+
+    const addRow = () => {
+        setRows([...rows, { name: '', departmentId: '', price: '0', description: '', notes: '' }]);
+    };
+
+    const updateRow = (index: number, field: string, value: any) => {
+        const newRows = [...rows];
+        newRows[index][field] = value;
+        setRows(newRows);
+    };
+
+    const removeRow = (index: number) => {
+        if (rows.length === 1) return;
+        setRows(rows.filter((_, i) => i !== index));
+    };
+
+    const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt: any) => {
+            try {
+                const data = evt.target.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const firstSheet = workbook.SheetNames[0];
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+                
+                const importedRows = jsonData.map((item: any) => {
+                    const name = item['اسم الصنف'] || item.name || item.Name || '';
+                    const deptName = item['القسم'] || item.department || item.Department || '';
+                    const price = item['السعر'] || item.price || item.Price || '0';
+                    const desc = item['الوصف'] || item.description || item.Description || '';
+                    
+                    const dept = departments.find((d: any) => d.name === deptName);
+                    
+                    return {
+                        name,
+                        departmentId: dept?.id || '',
+                        price: price.toString(),
+                        description: desc,
+                        notes: item['ملاحظات'] || item.notes || ''
+                    };
+                }).filter((r: any) => r.name);
+
+                if (importedRows.length > 0) {
+                    setRows([...rows.filter(r => r.name), ...importedRows]);
+                    alert(`تم استيراد ${importedRows.length} صنف.`);
+                }
+            } catch (err) {
+                alert("حدث خطأ أثناء قراءة الملف.");
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const handleSubmit = () => {
+        const validRows = rows.filter(r => r.name.trim() !== '');
+        if (validRows.length === 0) return;
+        onSave(validRows);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                            <span className="material-symbols-outlined text-2xl">view_list</span>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900">تعبئة الأصناف بالجملة</h3>
+                            <p className="text-xs text-slate-500">أضف قائمة من الأصناف دفعة واحدة أو استورد من ملف.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all cursor-pointer border border-emerald-100 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-sm">upload_file</span>
+                            استيراد من ملف
+                            <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} />
+                        </label>
+                        <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                        <table className="w-full text-right">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="p-4 text-xs font-bold text-slate-500">اسم الصنف *</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500">القسم</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500">السعر</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500">الوصف</th>
+                                    <th className="px-4 py-4 w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((row, index) => (
+                                    <tr key={index} className="border-b border-slate-100">
+                                        <td className="p-2"><input type="text" value={row.name} onChange={e => updateRow(index, 'name', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" placeholder="مثال: سندويش شاورما" /></td>
+                                        <td className="p-2">
+                                            <select value={row.departmentId} onChange={e => updateRow(index, 'departmentId', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm bg-white">
+                                                <option value="">اختر القسم</option>
+                                                {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                            </select>
+                                        </td>
+                                        <td className="p-2"><input type="number" value={row.price} onChange={e => updateRow(index, 'price', e.target.value)} className="w-24 px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" /></td>
+                                        <td className="p-2"><input type="text" value={row.description} onChange={e => updateRow(index, 'description', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" placeholder="وصف..." /></td>
+                                        <td className="p-2"><button onClick={() => removeRow(index)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button onClick={addRow} className="mt-4 flex items-center gap-2 text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 rounded-xl transition-all">
+                        <span className="material-symbols-outlined">add_circle</span>
+                        إضافة صنف آخر
+                    </button>
+                </div>
+
+                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                    <button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all">إلغاء</button>
+                    <button onClick={handleSubmit} className="bg-indigo-600 text-white px-10 py-2.5 rounded-xl font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">حفظ ( {rows.filter(r => r.name).length} )</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 
@@ -346,12 +558,10 @@ const ProductModal: React.FC<{
   const [type, setType] = useState<Product['type']>(product?.type || 'product');
   const [description, setDescription] = useState(product?.description || '');
   const [price, setPrice] = useState(product?.price.toString() || '');
-  const [cost, setCost] = useState(product?.cost?.toString() || '');
   const [salePrice, setSalePrice] = useState(product?.salePrice?.toString() || '');
   const [discountPercent, setDiscountPercent] = useState(product?.discountPercent?.toString() || '');
   const [category, setCategory] = useState(product?.category || '');
   const [image, setImage] = useState(product?.image || '');
-  const [modifiers, setModifiers] = useState<{name: string, price: number}[]>(product?.availableModifiers || []);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isAutofilling, setIsAutofilling] = useState(false);
 
@@ -387,10 +597,8 @@ const ProductModal: React.FC<{
     onSave({
       name, description, category, type, image,
       price: parseFloat(price),
-      cost: cost ? parseFloat(cost) : undefined,
       salePrice: salePrice ? parseFloat(salePrice) : undefined,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
-      availableModifiers: modifiers.length > 0 ? modifiers : undefined,
     });
   };
 
@@ -439,9 +647,8 @@ const ProductModal: React.FC<{
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <InputField id="price" label="سعر البيع" value={price} onChange={e => setPrice(e.target.value)} error={errors.price} type="number" />
-              <InputField id="cost" label="التكلفة (اختياري)" value={cost} onChange={e => setCost(e.target.value)} type="number" />
               <InputField id="salePrice" label="سعر العرض (اختياري)" value={salePrice} onChange={e => setSalePrice(e.target.value)} type="number" />
               <InputField id="discountPercent" label="نسبة الخصم %" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} type="number" />
             </div>
@@ -449,57 +656,6 @@ const ProductModal: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <InputField id="category" label="التصنيف (اختياري)" value={category} onChange={e => setCategory(e.target.value)} />
             </div>
-            
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
-                <div className="flex justify-between items-center mb-3">
-                    <label className="block text-slate-700 text-sm font-bold">الإضافات (الجبنة، الصوص، الخ...)</label>
-                    <button type="button" onClick={() => setModifiers([...modifiers, {name: '', price: 0}])} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-200 font-bold transition-all">
-                        + إضافة عنصر
-                    </button>
-                </div>
-                {modifiers.length > 0 ? (
-                    <div className="space-y-2">
-                        {modifiers.map((mod, index) => (
-                            <div key={index} className="flex gap-2 items-center">
-                                <input 
-                                    type="text" 
-                                    placeholder="اسم الإضافة (مثل: جبنة)" 
-                                    value={mod.name}
-                                    onChange={(e) => {
-                                        const newMods = [...modifiers];
-                                        newMods[index].name = e.target.value;
-                                        setModifiers(newMods);
-                                    }}
-                                    className="flex-1 p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                                />
-                                <input 
-                                    type="number" 
-                                    placeholder="السعر" 
-                                    value={mod.price === 0 && !mod.name ? '' : mod.price}
-                                    onChange={(e) => {
-                                        const newMods = [...modifiers];
-                                        newMods[index].price = parseFloat(e.target.value) || 0;
-                                        setModifiers(newMods);
-                                    }}
-                                    className="w-24 p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                                    min="0"
-                                    step="0.01"
-                                />
-                                <button type="button" onClick={() => {
-                                    const newMods = [...modifiers];
-                                    newMods.splice(index, 1);
-                                    setModifiers(newMods);
-                                }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                    <span className="material-symbols-outlined text-[20px]">delete</span>
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-xs text-slate-400 text-center py-2">لا توجد إضافات. الزبون سيشتري المنتج بدون إضافات.</p>
-                )}
-            </div>
-
             <InputField id="description" label="الوصف (اختياري)" value={description} onChange={e => setDescription(e.target.value)} />
         
         <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-200">

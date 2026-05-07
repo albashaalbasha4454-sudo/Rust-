@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Invoice, Expense, FinancialTransaction } from '../types';
+import type { Invoice, Expense, FinancialTransaction, OrderType } from '../types';
 
 const StatCard = ({ title, value, icon, valueClassName, subtext }: { title: string, value: string | number, icon: string, valueClassName?: string, subtext?: string }) => (
     <div className="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4 border border-slate-200">
@@ -23,7 +23,8 @@ const FinancialSummaryView: React.FC<{
 
     const financialData = useMemo(() => {
         // Income Statement
-        const completedSales = invoices.filter(inv => (inv.type === 'sale' || (inv.type === 'shipping' && inv.status === 'completed')) && inv.paymentStatus === 'paid');
+        const saleTypes: OrderType[] = ['sale', 'delivery', 'dine_in', 'takeaway'];
+        const completedSales = invoices.filter(inv => saleTypes.includes(inv.type) && inv.status === 'completed' && inv.paymentStatus === 'paid');
         const returns = invoices.filter(inv => inv.type === 'return');
         
         const totalRevenue = completedSales.reduce((sum, inv) => sum + inv.total, 0);

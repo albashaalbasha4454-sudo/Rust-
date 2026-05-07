@@ -1,25 +1,62 @@
 export interface Product {
   id: string;
   name: string;
-  type: 'product' | 'service';
-  description?: string;
+  departmentId?: string;
+  departmentName?: string;
   category?: string;
+  description?: string;
+  barcode?: string;
   price: number;
   salePrice?: number;
+  costPrice?: number;
   discountPercent?: number;
-  cost?: number;
+  type?: 'product' | 'service';
+  status: 'available' | 'unavailable';
   image?: string;
-  availableModifiers?: {name: string, price: number}[];
+  imageUrl?: string;
+  notes?: string;
+  reviewStatus?: 'ok' | 'needs_price';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Modifier {
+  id: string;
+  parentProductId: string;
+  name: string;
+  priceDelta: number;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  managerName?: string;
+  status: 'active' | 'inactive';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface InvoiceItem {
   productId: string;
   productName: string;
-  price: number;
-  cost?: number;
-  discount?: number;
-  notes?: string;
-  modifiers?: {name: string, price: number}[];
+  departmentId: string;
+  departmentName: string;
+  quantity: number;
+  basePrice: number;
+  modifiers: {
+    modifierId: string;
+    modifierName: string;
+    priceDelta: number;
+  }[];
+  modifiersTotal: number;
+  unitPrice: number; // basePrice + modifiersTotal + extraPrice
+  lineTotal: number; // unitPrice * quantity
+  itemNotes?: string;
+  extraPrice?: number;
 }
 
 export interface Customer {
@@ -58,7 +95,6 @@ export interface Invoice {
   };
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  paymentMethod?: 'cash' | 'card';
   source?: 'in-store' | 'facebook' | 'instagram' | 'whatsapp' | 'other';
   deliveryFee?: number;
   processedBy?: string;
@@ -73,8 +109,9 @@ export interface Expense {
   amount: number;
   category?: string;
   accountId: string; // The account it was paid from
+  departmentId: string;
+  status?: 'completed' | 'review' | 'incomplete';
   notes?: string;
-  processedBy?: string; // The cashier/admin who added it
 }
 
 export interface ReturnRequest {
@@ -129,12 +166,19 @@ export interface TillCloseout {
   forDate: string; // ISO string YYYY-MM-DD
   totalSales: number;
   totalReturns: number; // Positive number representing refund amount
-  totalCashSales?: number;
-  totalCardSales?: number;
-  totalExpenses?: number;
   netCashExpected: number;
   countedCash: number;
   difference: number;
   notes?: string;
   invoiceIds: string[];
+}
+
+export interface ActivityLog {
+    id: string;
+    userId: string;
+    username: string;
+    action: string;
+    timestamp: string;
+    details: string;
+    metaData?: string;
 }
