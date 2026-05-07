@@ -47,6 +47,8 @@ export interface InvoiceItem {
   departmentName: string;
   quantity: number;
   basePrice: number;
+  originalPrice?: number;
+  offerPrice?: number;
   modifiers: {
     modifierId: string;
     modifierName: string;
