@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const RESET_VERSION_KEY = 'data_reset_items_prices_only_2026_05_07';
-const LEGACY_BACKUP_KEY = 'legacy_full_backup_before_reset';
+const RESET_VERSION_KEY = 'data_reset_items_prices_only_after_offers_2026_05_07_v3';
+const LEGACY_BACKUP_KEY = 'legacy_full_backup_before_after_offers_reset';
 
 const OPERATIONAL_KEYS_TO_CLEAR = [
   'invoices',
