@@ -23,6 +23,38 @@ const toNumberOrUndefined = (value: unknown): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+const normalizeName = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
+
+const readDepartments = (): any[] => {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+
+  try {
+    const rawDepartments = window.localStorage.getItem('departments');
+    const parsedDepartments = rawDepartments ? JSON.parse(rawDepartments) : [];
+    return Array.isArray(parsedDepartments) ? parsedDepartments : [];
+  } catch {
+    return [];
+  }
+};
+
+const resolveDepartmentForProduct = (product: any) => {
+  const departments = readDepartments();
+  const fallbackName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
+  const rawDepartmentId = normalizeName(product.departmentId);
+  const rawDepartmentName = fallbackName;
+
+  const byId = departments.find((department) => department.id === rawDepartmentId);
+  if (byId) return { departmentId: byId.id, departmentName: byId.name };
+
+  const byName = departments.find((department) => normalizeName(department.name) === rawDepartmentName);
+  if (byName) return { departmentId: byName.id, departmentName: byName.name };
+
+  const misc = departments.find((department) => department.id === 'dept-misc' || normalizeName(department.name) === 'عام');
+  if (misc) return { departmentId: misc.id, departmentName: misc.name };
+
+  return { departmentId: rawDepartmentId && rawDepartmentId !== 'misc' ? rawDepartmentId : 'dept-misc', departmentName: rawDepartmentName };
+};
+
 const pickSavedOfferPrice = (product: any): number | undefined => {
   const candidates = [
     product.salePrice,
@@ -61,15 +93,15 @@ const sanitizeProductsForFreshStart = (products: unknown) => {
       const price = Number.isFinite(rawPrice) ? rawPrice : 0;
       const savedOfferPrice = pickSavedOfferPrice(product);
       const salePrice = savedOfferPrice !== undefined && savedOfferPrice > 0 && savedOfferPrice < price ? savedOfferPrice : undefined;
-      const departmentName = product.departmentName || product.category || 'عام';
+      const resolvedDepartment = resolveDepartmentForProduct(product);
 
       return {
         ...product,
         id: product.id || `prod-clean-${index + 1}`,
         name: product.name.trim(),
-        departmentId: product.departmentId || 'dept-misc',
-        departmentName,
-        category: departmentName,
+        departmentId: resolvedDepartment.departmentId,
+        departmentName: resolvedDepartment.departmentName,
+        category: resolvedDepartment.departmentName,
         price,
         salePrice,
         status: product.status === 'unavailable' ? 'unavailable' : 'available',
@@ -91,7 +123,6 @@ const normalizeFinancialTransactions = (transactions: unknown) => {
       const amount = Number(tx.amount);
       if (!Number.isFinite(amount) || amount <= 0) return false;
 
-      // Do not affect balances with pending expenses.
       if (tx.type === 'expense' && typeof tx.description === 'string' && tx.description.includes('معلق')) {
         return false;
       }
