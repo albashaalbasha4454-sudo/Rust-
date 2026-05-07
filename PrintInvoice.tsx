@@ -9,7 +9,7 @@ interface PrintInvoiceProps {
   shopAddress: string;
 }
 
-const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName, shopAddress }) => {
+const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName }) => {
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -70,7 +70,6 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
               <h3 className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-3 border-b border-dark-100 pb-1 sm:text-left">من</h3>
               <div className="space-y-1 min-w-0">
                 <p className="font-bold text-lg text-dark-800 break-words">{shopName}</p>
-                <p className="text-dark-500 text-xs break-words">{shopAddress}</p>
               </div>
             </div>
           </div>
@@ -119,20 +118,9 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
             <div className="flex-1 min-w-0">
               <div className="bg-dark-50 p-4 sm:p-6 rounded-2xl border border-dark-100">
                 <h4 className="text-xs font-black text-dark-400 uppercase tracking-widest mb-4 border-b border-dark-200 pb-2">ملاحظات الطلب</h4>
-                <p className="text-xs text-dark-800 leading-relaxed mb-4 break-words">
+                <p className="text-xs text-dark-800 leading-relaxed break-words">
                   {invoice.notes || 'شكراً لزيارتكم مطابخ الشرق. نتمنى لكم وجبة شهية!'}
                 </p>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-500 text-white rounded-lg shadow-sm">
-                        <span className="material-symbols-outlined text-lg">call</span>
-                      </div>
-                      <span className="font-bold text-dark-700">واتساب</span>
-                    </div>
-                    <span className="font-mono text-dark-500 whitespace-nowrap">0958484741</span>
-                  </div>
-                </div>
               </div>
             </div>
             <div className="w-full sm:w-64 space-y-2 shrink-0">
@@ -154,7 +142,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
           </div>
 
           <div className="mt-12 sm:mt-20 text-center border-t border-dark-100 pt-6">
-            <p className="text-dark-400 text-xs">تم إنشاء هذه الفاتورة بواسطة نظام مأكولات الشرق الذكي</p>
+            <p className="text-dark-400 text-xs">تم إنشاء هذه الفاتورة بواسطة نظام مطابخ الشرق</p>
           </div>
         </div>
 
