@@ -17,6 +17,40 @@ const OPERATIONAL_KEYS_TO_CLEAR = [
   'auto_backup_snapshot'
 ];
 
+const toNumberOrUndefined = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const pickSavedOfferPrice = (product: any): number | undefined => {
+  const candidates = [
+    product.salePrice,
+    product.offerPrice,
+    product.customPrice,
+    product.customSalePrice,
+    product.manualPrice,
+    product.specialPrice,
+    product.discountedPrice,
+    product.priceAfterOffer,
+    product.offer_price,
+    product.sale_price,
+    product.custom_price,
+    product['سعر العرض'],
+    product['السعر المخصص'],
+    product['سعر مخصص'],
+    product['السعر بعد العرض'],
+    product['سعر بعد العرض']
+  ];
+
+  for (const value of candidates) {
+    const parsed = toNumberOrUndefined(value);
+    if (parsed !== undefined && parsed > 0) return parsed;
+  }
+
+  return undefined;
+};
+
 const sanitizeProductsForFreshStart = (products: unknown) => {
   if (!Array.isArray(products)) return products;
 
@@ -25,19 +59,23 @@ const sanitizeProductsForFreshStart = (products: unknown) => {
     .map((product: any, index: number) => {
       const rawPrice = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price || 0);
       const price = Number.isFinite(rawPrice) ? rawPrice : 0;
+      const savedOfferPrice = pickSavedOfferPrice(product);
+      const salePrice = savedOfferPrice !== undefined && savedOfferPrice > 0 && savedOfferPrice < price ? savedOfferPrice : undefined;
       const departmentName = product.departmentName || product.category || 'عام';
 
       return {
+        ...product,
         id: product.id || `prod-clean-${index + 1}`,
         name: product.name.trim(),
         departmentId: product.departmentId || 'dept-misc',
         departmentName,
         category: departmentName,
         price,
+        salePrice,
         status: product.status === 'unavailable' ? 'unavailable' : 'available',
         reviewStatus: price > 0 ? 'ok' : 'needs_price',
         createdAt: product.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: product.updatedAt || new Date().toISOString()
       };
     });
 };
