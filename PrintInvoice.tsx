@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import type { Invoice } from './types';
+import React, { useEffect, useMemo } from 'react';
+import type { Invoice, Product } from './types';
 import { Logo } from './components/Logo';
 
 interface PrintInvoiceProps {
@@ -9,7 +9,21 @@ interface PrintInvoiceProps {
   shopAddress: string;
 }
 
+const getStoredProducts = (): Product[] => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const rawProducts = window.localStorage.getItem('products');
+    const parsedProducts = rawProducts ? JSON.parse(rawProducts) : [];
+    return Array.isArray(parsedProducts) ? parsedProducts : [];
+  } catch {
+    return [];
+  }
+};
+
 const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName }) => {
+  const storedProducts = useMemo(() => getStoredProducts(), []);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -21,6 +35,41 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName 
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const getOfferInfo = (item: Invoice['items'][number]) => {
+    if (typeof item.originalPrice === 'number' && typeof item.offerPrice === 'number' && item.originalPrice > item.offerPrice) {
+      return {
+        hasOfferPrice: true,
+        originalPrice: item.originalPrice,
+        offerPrice: item.offerPrice
+      };
+    }
+
+    const product = storedProducts.find((storedProduct) => {
+      return storedProduct.id === item.productId || `needs-price-${storedProduct.id}` === item.productId;
+    });
+
+    if (
+      product &&
+      typeof product.price === 'number' &&
+      typeof product.salePrice === 'number' &&
+      product.salePrice > 0 &&
+      product.price > product.salePrice &&
+      Math.abs(item.basePrice - product.salePrice) < 0.01
+    ) {
+      return {
+        hasOfferPrice: true,
+        originalPrice: product.price,
+        offerPrice: product.salePrice
+      };
+    }
+
+    return {
+      hasOfferPrice: false,
+      originalPrice: undefined,
+      offerPrice: undefined
+    };
   };
 
   const subtotal = invoice.items.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -86,12 +135,12 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName 
               </thead>
               <tbody>
                 {invoice.items.map((item, index) => {
-                  const hasOfferPrice = typeof item.originalPrice === 'number' && typeof item.offerPrice === 'number' && item.originalPrice > item.offerPrice;
+                  const offerInfo = getOfferInfo(item);
                   return (
                     <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid text-sm`}>
                       <td className="p-3 align-top min-w-0">
                         <span className="font-bold text-dark-800 break-words">{item.productName}</span>
-                        {hasOfferPrice && (
+                        {offerInfo.hasOfferPrice && (
                           <div className="text-[10px] text-emerald-600 mt-1 font-bold">سعر عرض</div>
                         )}
                         {item.modifiers && item.modifiers.length > 0 && (
@@ -111,10 +160,10 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName 
                         ) : null}
                       </td>
                       <td className="p-3 text-left text-dark-700 align-top whitespace-nowrap">
-                        {hasOfferPrice ? (
+                        {offerInfo.hasOfferPrice ? (
                           <div className="flex flex-col items-end leading-tight">
-                            <span className="line-through text-dark-300 text-xs">{item.originalPrice!.toFixed(2)}</span>
-                            <span className="font-black text-emerald-700">{item.offerPrice!.toFixed(2)}</span>
+                            <span className="line-through text-dark-300 text-xs">{offerInfo.originalPrice!.toFixed(2)}</span>
+                            <span className="font-black text-emerald-700">{offerInfo.offerPrice!.toFixed(2)}</span>
                           </div>
                         ) : (
                           item.unitPrice.toFixed(2)
