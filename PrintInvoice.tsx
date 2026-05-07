@@ -85,31 +85,46 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName 
                 </tr>
               </thead>
               <tbody>
-                {invoice.items.map((item, index) => (
-                  <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid text-sm`}>
-                    <td className="p-3 align-top min-w-0">
-                      <span className="font-bold text-dark-800 break-words">{item.productName}</span>
-                      {item.modifiers && item.modifiers.length > 0 && (
-                        <div className="text-[10px] text-dark-500 mt-1 break-words">
-                          الإضافات: {item.modifiers.map(m => m.modifierName).join(', ')}
-                        </div>
-                      )}
-                      {item.itemNotes && (
-                        <div className="text-[10px] text-indigo-600 mt-1 italic break-words">
-                          ملاحظة: {item.itemNotes}
-                        </div>
-                      )}
-                      {item.extraPrice ? (
-                        <div className="text-[10px] text-emerald-600 mt-1">
-                          زيادة سعر: {item.extraPrice.toFixed(2)}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="p-3 text-left text-dark-700 align-top whitespace-nowrap">{item.unitPrice.toFixed(2)}</td>
-                    <td className="p-3 text-center text-dark-700 align-top whitespace-nowrap">{item.quantity}</td>
-                    <td className="p-3 text-left font-bold text-dark-800 align-top whitespace-nowrap">{item.lineTotal.toFixed(2)}</td>
-                  </tr>
-                ))}
+                {invoice.items.map((item, index) => {
+                  const hasOfferPrice = typeof item.originalPrice === 'number' && typeof item.offerPrice === 'number' && item.originalPrice > item.offerPrice;
+                  return (
+                    <tr key={`${item.productId}-${index}`} className={`border-b border-dark-100 ${index % 2 === 0 ? 'bg-white' : 'bg-dark-50/50'} page-break-inside-avoid text-sm`}>
+                      <td className="p-3 align-top min-w-0">
+                        <span className="font-bold text-dark-800 break-words">{item.productName}</span>
+                        {hasOfferPrice && (
+                          <div className="text-[10px] text-emerald-600 mt-1 font-bold">سعر عرض</div>
+                        )}
+                        {item.modifiers && item.modifiers.length > 0 && (
+                          <div className="text-[10px] text-dark-500 mt-1 break-words">
+                            الإضافات: {item.modifiers.map(m => m.modifierName).join(', ')}
+                          </div>
+                        )}
+                        {item.itemNotes && (
+                          <div className="text-[10px] text-indigo-600 mt-1 italic break-words">
+                            ملاحظة: {item.itemNotes}
+                          </div>
+                        )}
+                        {item.extraPrice ? (
+                          <div className="text-[10px] text-emerald-600 mt-1">
+                            زيادة سعر: {item.extraPrice.toFixed(2)}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="p-3 text-left text-dark-700 align-top whitespace-nowrap">
+                        {hasOfferPrice ? (
+                          <div className="flex flex-col items-end leading-tight">
+                            <span className="line-through text-dark-300 text-xs">{item.originalPrice!.toFixed(2)}</span>
+                            <span className="font-black text-emerald-700">{item.offerPrice!.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          item.unitPrice.toFixed(2)
+                        )}
+                      </td>
+                      <td className="p-3 text-center text-dark-700 align-top whitespace-nowrap">{item.quantity}</td>
+                      <td className="p-3 text-left font-bold text-dark-800 align-top whitespace-nowrap">{item.lineTotal.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
