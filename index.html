@@ -134,6 +134,21 @@
   </head>
   <body class="bg-slate-100">
     <div id="root"></div>
+    <script>
+      window.addEventListener('load', function () {
+        var openProductSearch = function () {
+          var buttons = Array.from(document.querySelectorAll('button'));
+          var filterButton = buttons.find(function (button) {
+            return button.textContent && button.textContent.includes('تصفية') && button.textContent.includes('expand_more');
+          });
+          var searchInput = Array.from(document.querySelectorAll('input')).find(function (input) {
+            return input.placeholder && input.placeholder.includes('الاسم');
+          });
+          if (filterButton && !searchInput) filterButton.click();
+        };
+        setInterval(openProductSearch, 1200);
+      });
+    </script>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
