@@ -450,11 +450,12 @@ const BulkAddModal = ({ onClose, onSave, departments }: any) => {
                     const price = item['السعر'] || item.price || item.Price || '0';
                     const desc = item['الوصف'] || item.description || item.Description || '';
                     
-                    const dept = departments.find((d: any) => d.name === deptName);
+                    const id = deptName ? `dept-${deptName.trim().replace(/\s+/g, '-').toLowerCase()}` : '';
                     
                     return {
                         name,
-                        departmentId: dept?.id || '',
+                        departmentName: deptName,
+                        departmentId: id,
                         price: price.toString(),
                         description: desc,
                         notes: item['ملاحظات'] || item.notes || ''
@@ -509,7 +510,7 @@ const BulkAddModal = ({ onClose, onSave, departments }: any) => {
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="p-4 text-xs font-bold text-slate-500">اسم الصنف *</th>
-                                    <th className="p-4 text-xs font-bold text-slate-500">القسم</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500">القسم / التصنيف الرئيسي</th>
                                     <th className="p-4 text-xs font-bold text-slate-500">السعر</th>
                                     <th className="p-4 text-xs font-bold text-slate-500">الوصف</th>
                                     <th className="px-4 py-4 w-10"></th>
@@ -520,10 +521,21 @@ const BulkAddModal = ({ onClose, onSave, departments }: any) => {
                                     <tr key={index} className="border-b border-slate-100">
                                         <td className="p-2"><input type="text" value={row.name} onChange={e => updateRow(index, 'name', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" placeholder="مثال: سندويش شاورما" /></td>
                                         <td className="p-2">
-                                            <select value={row.departmentId} onChange={e => updateRow(index, 'departmentId', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm bg-white">
-                                                <option value="">اختر القسم</option>
-                                                {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                            </select>
+                                            <input 
+                                                list={`deptListBulk-${index}`}
+                                                value={row.departmentName || ''} 
+                                                onChange={e => {
+                                                    const name = e.target.value;
+                                                    const id = `dept-${name.trim().replace(/\s+/g, '-').toLowerCase()}`;
+                                                    updateRow(index, 'departmentName', name);
+                                                    updateRow(index, 'departmentId', id);
+                                                }} 
+                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm bg-white"
+                                                placeholder="اسم القسم"
+                                            />
+                                            <datalist id={`deptListBulk-${index}`}>
+                                                {departments.map((d: any) => <option key={d.id} value={d.name} />)}
+                                            </datalist>
                                         </td>
                                         <td className="p-2"><input type="number" value={row.price} onChange={e => updateRow(index, 'price', e.target.value)} className="w-24 px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" /></td>
                                         <td className="p-2"><input type="text" value={row.description} onChange={e => updateRow(index, 'description', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm" placeholder="وصف..." /></td>
