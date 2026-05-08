@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const STORAGE_NAMESPACE = 'fresh_start_2026_05_07_v5';
+const STORAGE_NAMESPACE = 'fresh_start_2026_05_07_v6';
 
 const getStorageKey = (key: string) => `${STORAGE_NAMESPACE}:${key}`;
 
