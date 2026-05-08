@@ -10,16 +10,59 @@ interface DepartmentsViewProps {
   deleteDepartment: (id: string) => void;
 }
 
+const STORAGE_NAMESPACES = [
+  'fresh_start_2026_05_07_v8',
+  'fresh_start_2026_05_07_v7',
+  'fresh_start_2026_05_07_v6',
+  'fresh_start_2026_05_07_v5'
+];
+
+const normalizeName = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
+
+const ORIENTAL_NAMES = ['اوزي', 'أوزي', 'مندي', 'رز بخاري', 'فريكة', 'يالنجي', 'كبة', 'حراق', 'صحن فرنسي', 'قمحية', 'فتوش', 'تبولة', 'باشا', 'ششبرك', 'شوربة عدس', 'مسخن'];
+const FALAFEL_NAMES = ['فلافل', 'فول', 'حمص', 'فتة', 'بيض', 'بدوة', 'مخللات', 'ساندويش بطاطا'];
+const GRILL_NAMES = ['كباب لحم', 'كباب جاج', 'كباب دجاج', 'شيش', 'جناحات', 'وردات', 'دبوس'];
+const WESTERN_NAMES = ['ماريا', 'فاهيتا', 'فرانشيسكو', 'كاري', 'مكسيكي', 'برجر', 'تشيز', 'سودة'];
+const OVEN_NAMES = ['بيتزا', 'لحمة', 'جبنه', 'جبنة', 'زعتر', 'محمرة', 'مرتديلا', 'سبانخ', 'كيري', 'شوكولا', 'زيتون', 'سنفورة', 'سجق', 'توشكا'];
+const TAGINE_NAMES = ['فخارة', 'ملوخية'];
+const MEAL_NAMES = ['حبة دجاج', 'ربع حبة دجاج'];
+
+const includesAny = (name: string, words: string[]) => words.some(word => name.includes(normalizeName(word)));
+
+const inferDepartmentName = (product: Product) => {
+  const written = normalizeName(product.departmentName || product.category);
+  const name = normalizeName(product.name);
+
+  if (written && written !== 'عام' && written !== 'غير مصنف') return written;
+  if (includesAny(name, ORIENTAL_NAMES)) return 'قسم الشرقي';
+  if (includesAny(name, FALAFEL_NAMES)) return 'قسم الفلافل';
+  if (includesAny(name, GRILL_NAMES)) return 'قسم المشويات';
+  if (includesAny(name, WESTERN_NAMES)) return 'قسم الغربي';
+  if (includesAny(name, OVEN_NAMES)) return 'الفرن';
+  if (includesAny(name, TAGINE_NAMES)) return 'طواجن';
+  if (includesAny(name, MEAL_NAMES)) return 'وجبات';
+  return 'عام';
+};
+
 const readStoredProducts = (): Product[] => {
   if (typeof window === 'undefined') return [];
 
-  try {
-    const rawProducts = window.localStorage.getItem('products');
-    const parsedProducts = rawProducts ? JSON.parse(rawProducts) : [];
-    return Array.isArray(parsedProducts) ? parsedProducts : [];
-  } catch {
-    return [];
+  const candidateKeys = [
+    ...STORAGE_NAMESPACES.map(namespace => `${namespace}:products`),
+    'products'
+  ];
+
+  for (const key of candidateKeys) {
+    try {
+      const rawProducts = window.localStorage.getItem(key);
+      const parsedProducts = rawProducts ? JSON.parse(rawProducts) : [];
+      if (Array.isArray(parsedProducts) && parsedProducts.length > 0) return parsedProducts;
+    } catch {
+      // Continue with next key.
+    }
   }
+
+  return [];
 };
 
 const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepartment, updateDepartment, deleteDepartment }) => {
@@ -31,9 +74,13 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepar
     const counts = new Map<string, number>();
 
     products.forEach((product) => {
-      if (product.departmentId) {
-        counts.set(product.departmentId, (counts.get(product.departmentId) || 0) + 1);
-      }
+      const inferredDepartmentName = inferDepartmentName(product);
+      const matchedDepartment = departments.find((department) => {
+        return department.id === product.departmentId || normalizeName(department.name) === inferredDepartmentName;
+      });
+
+      const departmentId = matchedDepartment?.id || product.departmentId || 'dept-misc';
+      counts.set(departmentId, (counts.get(departmentId) || 0) + 1);
     });
 
     return counts;
@@ -75,7 +122,7 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepar
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-black text-slate-800">إدارة الأقسام</h1>
-          <p className="text-sm text-slate-500 mt-1">إضافة، تعديل، تعطيل، أو حذف الأقسام غير المرتبطة بأصناف.</p>
+          <p className="text-sm text-slate-500 mt-1">كل قسم يعرض عدد الأصناف المرتبطة به فعليًا.</p>
         </div>
         <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white py-2.5 px-5 rounded-xl font-bold hover:bg-indigo-700 shadow-sm">
           + إضافة قسم جديد
