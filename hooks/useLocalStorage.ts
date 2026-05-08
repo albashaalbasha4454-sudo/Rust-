@@ -11,6 +11,67 @@ const normalizeNumber = (value: unknown): number => {
 
 const normalizeName = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
 
+const readStoredArray = (key: string): any[] => {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+
+  try {
+    const raw = window.localStorage.getItem(getStorageKey(key));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const resolveDepartment = (product: any) => {
+  const departments = readStoredArray('departments');
+  const rawDepartmentId = normalizeName(product.departmentId);
+  const rawDepartmentName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
+
+  const byId = departments.find((department) => normalizeName(department.id) === rawDepartmentId);
+  if (byId) return { departmentId: byId.id, departmentName: byId.name };
+
+  const byName = departments.find((department) => normalizeName(department.name) === rawDepartmentName);
+  if (byName) return { departmentId: byName.id, departmentName: byName.name };
+
+  const general = departments.find((department) => normalizeName(department.name) === 'عام' || department.id === 'dept-misc');
+  if (general) return { departmentId: general.id, departmentName: general.name };
+
+  return {
+    departmentId: rawDepartmentId && rawDepartmentId !== 'misc' ? rawDepartmentId : 'dept-misc',
+    departmentName: rawDepartmentName
+  };
+};
+
+const syncProductDepartmentNames = (departments: unknown) => {
+  if (!Array.isArray(departments) || typeof window === 'undefined' || !window.localStorage) return;
+
+  const productsKey = getStorageKey('products');
+  const rawProducts = window.localStorage.getItem(productsKey);
+  if (!rawProducts) return;
+
+  try {
+    const products = JSON.parse(rawProducts);
+    if (!Array.isArray(products)) return;
+
+    const updatedProducts = products.map((product: any) => {
+      const department = departments.find((dept: any) => dept.id === product.departmentId);
+      if (!department) return product;
+
+      return {
+        ...product,
+        departmentName: department.name,
+        category: department.name,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    window.localStorage.setItem(productsKey, JSON.stringify(normalizeProducts(updatedProducts)));
+  } catch (error) {
+    console.error('Department sync failed:', error);
+  }
+};
+
 const normalizeProducts = (products: unknown) => {
   if (!Array.isArray(products)) return products;
 
@@ -34,16 +95,15 @@ const normalizeProducts = (products: unknown) => {
         .map(normalizeNumber)
         .find((value) => value > 0 && value < price);
 
-      const departmentName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
-      const departmentId = normalizeName(product.departmentId) || 'dept-misc';
+      const resolvedDepartment = resolveDepartment(product);
 
       return {
         ...product,
         id: product.id || `prod-${index + 1}`,
         name: normalizeName(product.name),
-        departmentId,
-        departmentName,
-        category: departmentName,
+        departmentId: resolvedDepartment.departmentId,
+        departmentName: resolvedDepartment.departmentName,
+        category: resolvedDepartment.departmentName,
         price,
         salePrice: offerPrice,
         status: product.status === 'unavailable' ? 'unavailable' : 'available',
@@ -100,6 +160,11 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<R
         const valueToStore = value instanceof Function ? value(currentValue) : value;
         const normalizedValue = normalizeStoredValue(key, valueToStore) as T;
         window.localStorage.setItem(storageKey, JSON.stringify(normalizedValue));
+
+        if (key === 'departments') {
+          syncProductDepartmentNames(normalizedValue);
+        }
+
         return normalizedValue;
       });
     } catch (error) {
