@@ -177,6 +177,9 @@ const POSViewFinal: React.FC<POSViewFinalProps> = ({ products, modifiers, custom
                 </div>
               </button>
             ))}
+            {filteredProducts.length === 0 && (
+              <div className="col-span-full py-16 text-center text-slate-400 text-sm">لا توجد أصناف مطابقة.</div>
+            )}
           </div>
         </div>
       </div>
@@ -277,8 +280,12 @@ const POSViewFinal: React.FC<POSViewFinalProps> = ({ products, modifiers, custom
         </div>
       </div>
 
-      <DeliveryOrderModal isOpen={isDeliveryModalOpen} onClose={() => setIsDeliveryModalOpen(false)} onSubmit={createDeliveryOrder} customers={customers} />
-      <ReservationModal isOpen={isReservationModalOpen} onClose={() => setIsReservationModalOpen(false)} onSubmit={createReservation} customers={customers} />
+      {isDeliveryModalOpen && (
+        <DeliveryOrderModal cart={cart} customers={customers} onClose={() => setIsDeliveryModalOpen(false)} onConfirm={createDeliveryOrder} />
+      )}
+      {isReservationModalOpen && (
+        <ReservationModal cart={cart} customers={customers} onClose={() => setIsReservationModalOpen(false)} onConfirm={createReservation} />
+      )}
     </div>
   );
 };
