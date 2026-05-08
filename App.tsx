@@ -103,8 +103,8 @@ const App: React.FC = () => {
     
     const [currentView, setCurrentView] = useState(currentUser?.role === 'admin' ? 'dashboard' : 'pos');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [shopName] = useLocalStorage<string>('shopName', 'مطابخ الشرق');
-    const [shopAddress] = useLocalStorage<string>('shopAddress', 'شارع النصر، القاهرة - هاتف: 01012345678');
+    const [shopName] = useLocalStorage<string>('shopName', 'مطعم الباشا');
+    const [shopAddress] = useLocalStorage<string>('shopAddress', 'شارع النصر - القاهرة - التل حي الوسعة');
     const [isCloseTillModalOpen, setIsCloseTillModalOpen] = useState(false);
     const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
     

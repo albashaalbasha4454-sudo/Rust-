@@ -38,8 +38,8 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
           <div className="flex flex-col items-center mb-8 border-b-2 border-dark-800 pb-8">
             <Logo className="h-32 w-40" />
             <div className="text-center mt-4">
-                <h1 className="text-4xl font-black text-dark-800">مطابخ الشرق</h1>
-                <p className="text-brand-600 font-medium tracking-widest uppercase">East Food Restaurant</p>
+                <h1 className="text-4xl font-black text-dark-800">{shopName}</h1>
+                <p className="text-brand-600 font-medium tracking-widest uppercase">Restaurant & Grill</p>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                 <div className="bg-dark-50 p-6 rounded-2xl border border-dark-100">
                     <h4 className="text-xs font-black text-dark-400 uppercase tracking-widest mb-4 border-b border-dark-200 pb-2">ملاحظات الطلب</h4>
                     <p className="text-xs text-dark-800 leading-relaxed mb-4">
-                        {invoice.notes || 'شكراً لزيارتكم مطابخ الشرق. نتمنى لكم وجبة شهية!'}
+                        {invoice.notes || `شكراً لزيارتكم ${shopName}. نتمنى لكم وجبة شهية!`}
                     </p>
                     <div className="space-y-4">
                         <div className="flex items-center justify-between group">
@@ -162,7 +162,7 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
 
           {/* Footer */}
           <div className="mt-20 text-center border-t border-dark-100 pt-6">
-            <p className="text-dark-400 text-xs">تم إنشاء هذه الفاتورة بواسطة نظام مأكولات الشرق الذكي</p>
+            <p className="text-dark-400 text-xs">تم إنشاء هذه الفاتورة بواسطة النظام الذكي لـ {shopName}</p>
           </div>
         </div>
 
