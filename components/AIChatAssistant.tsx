@@ -14,6 +14,7 @@ interface AIChatAssistantProps {
   deleteProduct: (id: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   deleteExpense: (id: string) => void;
+  updateExpense: (expense: Expense) => void;
   addCustomer: (customer: Omit<Customer, 'id'>) => Customer;
   updateCustomer: (id: string, customer: Omit<Customer, 'id'>) => void;
   deleteCustomer: (id: string) => void;
@@ -168,6 +169,22 @@ const deleteExpenseFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
+const updateExpenseFunctionDeclaration: FunctionDeclaration = {
+  name: 'updateExpense',
+  description: 'تعديل مصروف مسجل. يجب تحديد المصروف بالمعرف وتوفير البيانات الجديدة.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      id: { type: Type.STRING, description: 'معرف المصروف المطلوب تعديله' },
+      description: { type: Type.STRING, description: 'الوصف الجديد' },
+      amount: { type: Type.NUMBER, description: 'المبلغ الجديد' },
+      category: { type: Type.STRING, description: 'التصنيف الجديد' },
+      date: { type: Type.STRING, description: 'التاريخ الجديد (ISO format)' },
+    },
+    required: ['id'],
+  },
+};
+
 const addCustomerFunctionDeclaration: FunctionDeclaration = {
   name: 'addCustomer',
   description: 'إضافة عميل جديد إلى سجل العملاء.',
@@ -237,7 +254,7 @@ const createSaleFunctionDeclaration: FunctionDeclaration = {
 const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ 
     products, invoices, expenses, customers, 
     addProduct, updateProduct, deleteProduct, 
-    addExpense, deleteExpense,
+    addExpense, deleteExpense, updateExpense,
     addCustomer, updateCustomer, deleteCustomer,
     onCompleteSale
 }) => {
@@ -289,7 +306,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
           لديك القدرة على:
           1.  **تحليل البيانات:** قدم رؤى دقيقة وقابلة للتنفيذ حول المبيعات، المصروفات، والعملاء. يمكنك إنشاء تقارير متقدمة.
           2.  **إدارة القائمة:** يمكنك إضافة، تعديل، وحذف الأصناف من القائمة.
-          3.  **إدارة المصروفات:** يمكنك تسجيل وحذف المصروفات. لتعديل مصروف، يجب حذفه ثم إضافته من جديد.
+          3.  **إدارة المصروفات:** يمكنك تسجيل، تعديل، وحذف المصروفات.
           4.  **إدارة العملاء:** يمكنك إضافة، تعديل، وحذف العملاء من السجل.
           5.  **معالجة المبيعات:** يمكنك إنشاء فواتير بيع مباشرة.
 
@@ -307,7 +324,8 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
             tools: [{ functionDeclarations: [
                 addProductFunctionDeclaration, addExpenseFunctionDeclaration,
                 updateProductFunctionDeclaration, deleteProductFunctionDeclaration,
-                deleteExpenseFunctionDeclaration, addCustomerFunctionDeclaration,
+                deleteExpenseFunctionDeclaration, updateExpenseFunctionDeclaration,
+                addCustomerFunctionDeclaration,
                 updateCustomerFunctionDeclaration, deleteCustomerFunctionDeclaration,
                 createSaleFunctionDeclaration
             ] }],
@@ -364,6 +382,22 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({
                     const { id } = funcCall.args as { id: string };
                     deleteExpense(id);
                     result = { success: true, message: `تم حذف المصروف بالمعرف ${id} بنجاح.` };
+                } else if (funcCall.name === 'updateExpense') {
+                    const args = funcCall.args as { id: string } & Partial<Expense>;
+                    const existingExpense = expenses.find(e => e.id === args.id);
+                    if (existingExpense) {
+                        const updatedData = {
+                            ...existingExpense,
+                            description: args.description || existingExpense.description,
+                            amount: args.amount ?? existingExpense.amount,
+                            category: args.category ?? existingExpense.category,
+                            date: args.date || existingExpense.date,
+                        };
+                        updateExpense(updatedData);
+                        result = { success: true, message: `تم تحديث المصروف ${updatedData.description} بنجاح.` };
+                    } else {
+                        result = { success: false, message: `لم يتم العثور على مصروف بالمعرف ${args.id}.` };
+                    }
                 } else if (funcCall.name === 'addCustomer') {
                     const args = funcCall.args as Omit<Customer, 'id'>;
                     const newCustomer = addCustomer(args);

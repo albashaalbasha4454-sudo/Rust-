@@ -30,13 +30,15 @@ const ReportsView: React.FC<{
   products: Product[];
   expenses: Expense[];
   departments: any[];
-}> = ({ invoices, products, expenses, departments }) => {
+  onResetDailyData?: () => void;
+}> = ({ invoices, products, expenses, departments, onResetDailyData }) => {
   const today = new Date().toISOString().split('T')[0];
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   const [startDate, setStartDate] = useState(thirtyDaysAgo.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(today);
+  const [daySearchQuery, setDaySearchQuery] = useState('');
 
   const salesByCategoryChartRef = useRef<HTMLCanvasElement>(null);
   const topProductsChartRef = useRef<HTMLCanvasElement>(null);
@@ -286,56 +288,128 @@ const ReportsView: React.FC<{
 
   return (
     <div className="p-4 sm:p-6 pb-20">
-      <div className="bg-white shadow-lg rounded-xl p-6 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 print:hidden">
         <div>
-            <h2 className="text-2xl font-bold text-slate-800">التقارير التحليلية</h2>
-            <p className="text-sm text-slate-500 mt-1">تحليل مفصل للأداء والأقسام والمصاريف.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">التقارير التحليلية</h2>
+            <p className="text-slate-500 font-medium mt-1">نظرة شاملة على أداء المؤسسة، المصاريف، والأرباح.</p>
         </div>
-        <button 
-            onClick={handlePrintReport}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200"
-        >
-            <span className="material-symbols-outlined">print</span>
-            <span>طباعة تقرير تفصيلي</span>
-        </button>
+        <div className="flex items-center gap-3">
+            {onResetDailyData && (
+                <button 
+                onClick={onResetDailyData}
+                className="flex items-center gap-2 bg-red-50 text-red-600 border border-red-100 px-4 py-2.5 rounded-xl hover:bg-red-100 transition-all font-bold group"
+                title="تصفير وحذف جميع الفواتير والمصاريف"
+                >
+                    <span className="material-symbols-outlined text-xl group-hover:rotate-12 transition-transform">delete_sweep</span>
+                    <span>تصفير البيانات</span>
+                </button>
+            )}
+            <button 
+                onClick={handlePrintReport}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200"
+            >
+                <span className="material-symbols-outlined">print</span>
+                <span>طباعة تقرير تفصيلي</span>
+            </button>
+        </div>
       </div>
 
-      <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField id="startDate" label="من تاريخ" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-            <InputField id="endDate" label="إلى تاريخ" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+      <div className="bg-white shadow-xl shadow-slate-200/50 rounded-2xl p-6 mb-8 border border-slate-100 print:hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex flex-wrap items-center gap-2">
+                {[
+                    { label: 'اليوم', id: 'today', range: [today, today] },
+                    { label: 'أمس', id: 'yesterday', range: [new Date(Date.now() - 86400000).toISOString().split('T')[0], new Date(Date.now() - 86400000).toISOString().split('T')[0]] },
+                    { label: 'هذا الأسبوع', id: 'week', range: [new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0], today] },
+                    { label: 'هذا الشهر', id: 'month', range: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], today] },
+                    { label: 'آخر 30 يوم', id: '30days', range: [thirtyDaysAgo.toISOString().split('T')[0], today] }
+                ].map((btn) => (
+                    <button
+                        key={btn.id}
+                        onClick={() => {
+                            setStartDate(btn.range[0]);
+                            setEndDate(btn.range[1]);
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+                            startDate === btn.range[0] && endDate === btn.range[1]
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
+                                : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        {btn.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400">من</span>
+                    <input 
+                        type="date" 
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        className="bg-transparent border-none outline-none text-sm font-bold text-slate-700 cursor-pointer"
+                    />
+                </div>
+                <div className="w-px h-6 bg-slate-200"></div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400">إلى</span>
+                    <input 
+                        type="date" 
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        className="bg-transparent border-none outline-none text-sm font-bold text-slate-700 cursor-pointer"
+                    />
+                </div>
+            </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <StatCard title="إجمالي الإيرادات" value={reportStats.totalRevenue.toLocaleString()} icon="payments" valueClassName="text-indigo-600" />
-        <StatCard title="إجمالي الربح" value={reportStats.totalProfit.toLocaleString()} icon="account_balance_wallet" valueClassName="text-sky-600" />
-        <StatCard title="إجمالي المصروفات" value={reportStats.totalExpenses.toLocaleString()} icon="receipt" valueClassName="text-red-500" />
-        <StatCard title="صافي الربح" value={reportStats.netProfit.toLocaleString()} icon="trending_up" valueClassName={reportStats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'} />
+      {/* Statistics Recap Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+            { label: 'إجمالي الإيرادات', value: reportStats.totalRevenue, icon: 'payments', color: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
+            { label: 'إجمالي الربح', value: reportStats.totalProfit, icon: 'trending_up', color: 'bg-blue-50 text-blue-600', border: 'border-blue-100' },
+            { label: 'إجمالي المصروفات', value: reportStats.totalExpenses, icon: 'receipt_long', color: 'bg-rose-50 text-rose-600', border: 'border-rose-100' },
+            { label: 'صافي الربح', value: reportStats.netProfit, icon: 'account_balance_wallet', color: 'bg-indigo-50 text-indigo-600', border: 'border-indigo-100' }
+        ].map((stat, i) => (
+            <div key={i} className={`bg-white p-5 rounded-2xl border ${stat.border} shadow-sm flex items-center gap-4`}>
+                <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center`}>
+                    <span className="material-symbols-outlined text-2xl">{stat.icon}</span>
+                </div>
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                    <p className="text-xl font-black text-slate-900 mt-0.5">{stat.value.toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">د.ع</span></p>
+                </div>
+            </div>
+        ))}
       </div>
 
-      {/* New Section: Department Analysis Table */}
-      <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-            <h3 className="text-xl font-bold text-slate-800 border-r-4 border-indigo-600 pr-3">تحليل الأقسام</h3>
-            <p className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                الفترة: <span className="text-indigo-600">{startDate}</span> إلى <span className="text-indigo-600">{endDate}</span>
+      {/* Department Analysis Table */}
+      <div className="bg-white shadow-xl shadow-slate-200/40 rounded-2xl p-0 mb-8 border border-slate-100 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-50 gap-2">
+            <div className="flex items-center gap-2">
+                <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
+                <h3 className="text-xl font-black text-slate-800">تحليل أداء الأقسام</h3>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase text-center">
+                الفترة النشطة: <span className="text-indigo-600">{startDate}</span> إلى <span className="text-indigo-600">{endDate}</span>
             </p>
         </div>
         <div className="overflow-x-auto">
-            <table className="w-full text-right">
-                <thead>
-                    <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                        <th className="px-6 py-4 rounded-r-xl">القسم</th>
+            <table className="w-full text-right border-collapse">
+                <thead className="bg-slate-50/50 text-slate-500 uppercase text-[11px] font-black tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-6 py-4">القسم</th>
                         <th className="px-6 py-4">المبيعات</th>
                         <th className="px-6 py-4">المصاريف</th>
                         <th className="px-6 py-4">إجمالي الربح</th>
-                        <th className="px-6 py-4 rounded-l-xl">صافي ربح القسم</th>
+                        <th className="px-6 py-4">صافي ربح القسم</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-50">
                     {departmentStats.map((stat, i) => (
-                        <tr key={i} className="hover:bg-slate-50 transition-colors group">
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-6 py-4 font-bold text-slate-700">{stat.name}</td>
                             <td className="px-6 py-4 font-mono text-indigo-600 font-bold">{stat.sales.toLocaleString()}</td>
                             <td className="px-6 py-4 font-mono text-red-500">{stat.expense.toLocaleString()}</td>
@@ -351,22 +425,23 @@ const ReportsView: React.FC<{
       </div>
 
       {/* Item Profit Analysis Table */}
-      <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-            <h3 className="text-xl font-bold text-slate-800 border-r-4 border-indigo-600 pr-3">تحليل أرباح الأصناف</h3>
-            <p className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                الفترة: <span className="text-indigo-600">{startDate}</span> إلى <span className="text-indigo-600">{endDate}</span>
-            </p>
+      <div className="bg-white shadow-xl shadow-slate-200/40 rounded-2xl p-0 mb-8 border border-slate-100 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-50 gap-2">
+            <div className="flex items-center gap-2">
+                <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                <h3 className="text-xl font-black text-slate-800">تحليل أرباح الأصناف</h3>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase text-center">الأكثر مبيعاً للفترة المختارة</p>
         </div>
         <div className="overflow-x-auto">
-            <table className="w-full text-right">
-                <thead>
-                    <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                        <th className="px-6 py-4 rounded-r-xl">الصنف</th>
+            <table className="w-full text-right border-collapse">
+                <thead className="bg-slate-50/50 text-slate-500 uppercase text-[11px] font-black tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-6 py-4">الصنف</th>
                         <th className="px-6 py-4 text-center">الكمية المباعة</th>
                         <th className="px-6 py-4 text-left">إجمالي المبيعات</th>
                         <th className="px-6 py-4 text-left">إجمالي التكلفة</th>
-                        <th className="px-6 py-4 text-left rounded-l-xl">إجمالي الربح</th>
+                        <th className="px-6 py-4 text-left">إجمالي الربح</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -382,18 +457,98 @@ const ReportsView: React.FC<{
                                 productStats[item.productId].cost += (item.costPrice || 0) * item.quantity;
                             });
                         });
-                        return Object.values(productStats).sort((a, b) => b.sales - a.sales).map((stat, i) => (
-                            <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-3 font-bold text-slate-700">{stat.name}</td>
-                                <td className="px-6 py-3 text-center font-mono">{stat.qty}</td>
-                                <td className="px-6 py-3 text-left font-mono text-indigo-600 font-bold">{stat.sales.toLocaleString()}</td>
-                                <td className="px-6 py-3 text-left font-mono text-slate-500">{stat.cost.toLocaleString()}</td>
-                                <td className={`px-6 py-3 text-left font-mono font-black ${stat.sales - stat.cost >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        return Object.values(productStats).sort((a, b) => b.sales - a.sales).slice(0, 50).map((stat, i) => (
+                            <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                                <td className="px-6 py-4 font-bold text-slate-700">{stat.name}</td>
+                                <td className="px-6 py-4 text-center font-mono">{stat.qty}</td>
+                                <td className="px-6 py-4 text-left font-mono text-indigo-600 font-bold">{stat.sales.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-left font-mono text-slate-400">{stat.cost.toLocaleString()}</td>
+                                <td className={`px-6 py-4 text-left font-mono font-black ${stat.sales - stat.cost >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                     {(stat.sales - stat.cost).toLocaleString()}
                                 </td>
                             </tr>
                         ));
                     })()}
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+      {/* Daily Summary Log */}
+      <div className="bg-white shadow-xl shadow-slate-200/40 rounded-2xl p-0 mb-8 border border-slate-100 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-50 gap-4">
+            <div className="flex items-center gap-2">
+                <div className="w-1.5 h-6 bg-amber-500 rounded-full"></div>
+                <h3 className="text-xl font-black text-slate-800">سجل ملخص الأيام</h3>
+            </div>
+            <div className="relative w-full sm:w-64">
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                <input 
+                    type="text" 
+                    placeholder="بحث عن يوم (YYYY-MM-DD)..." 
+                    value={daySearchQuery}
+                    onChange={e => setDaySearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pr-10 pl-4 text-sm focus:bg-white outline-none transition-all"
+                />
+            </div>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-right border-collapse">
+                <thead className="bg-slate-50/50 text-slate-500 uppercase text-[11px] font-black tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-6 py-4">التاريخ</th>
+                        <th className="px-6 py-4 text-center">عدد الفواتير</th>
+                        <th className="px-6 py-4">إجمالي المبيعات</th>
+                        <th className="px-6 py-4">إجمالي التكلفة</th>
+                        <th className="px-6 py-4">إجمالي المصاريف</th>
+                        <th className="px-6 py-4">صافي الربح اليومي</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {(() => {
+                        const dailyStats: { [date: string]: { sales: number, cost: number, expense: number, count: number } } = {};
+                        
+                        invoices.forEach(inv => {
+                            if (inv.type === 'return') return;
+                            const day = new Date(inv.date).toISOString().split('T')[0];
+                            if (!dailyStats[day]) dailyStats[day] = { sales: 0, cost: 0, expense: 0, count: 0 };
+                            dailyStats[day].sales += inv.total;
+                            dailyStats[day].cost += inv.items.reduce((sum, item) => sum + (item.costPrice || 0) * item.quantity, 0);
+                            dailyStats[day].count += 1;
+                        });
+
+                        expenses.forEach(exp => {
+                            const day = new Date(exp.date).toISOString().split('T')[0];
+                            if (!dailyStats[day]) dailyStats[day] = { sales: 0, cost: 0, expense: 0, count: 0 };
+                            dailyStats[day].expense += exp.amount;
+                        });
+
+                        return Object.entries(dailyStats)
+                            .filter(([date]) => !daySearchQuery || date.includes(daySearchQuery))
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .slice(0, 31)
+                            .map(([date, stat], i) => {
+                                const grossProfit = stat.sales - stat.cost;
+                                const netDaily = grossProfit - stat.expense;
+                                return (
+                                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-slate-600">{date}</td>
+                                        <td className="px-6 py-4 text-center font-mono">{stat.count}</td>
+                                        <td className="px-6 py-4 font-mono text-indigo-600">{stat.sales.toLocaleString()}</td>
+                                        <td className="px-6 py-4 font-mono text-slate-400">{stat.cost.toLocaleString()}</td>
+                                        <td className="px-6 py-4 font-mono text-red-500">{stat.expense.toLocaleString()}</td>
+                                        <td className={`px-6 py-4 font-mono font-black ${netDaily >= 0 ? 'text-emerald-600' : 'text-red-700'}`}>
+                                            {netDaily.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                );
+                            });
+                    })()}
+                    {invoices.length === 0 && expenses.length === 0 && (
+                        <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">لا توجد بيانات مسجلة.</td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>

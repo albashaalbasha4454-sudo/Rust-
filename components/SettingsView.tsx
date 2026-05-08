@@ -5,9 +5,10 @@ import type { User } from '../types';
 
 interface SettingsViewProps {
   onUpdatePrices: (operation: 'multiply' | 'divide', factor: number) => void;
+  onResetAllData?: (keepProducts: boolean) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ onUpdatePrices }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ onUpdatePrices, onResetAllData }) => {
   const [lowStockThreshold, setLowStockThreshold] = useLocalStorage<number>('lowStockThreshold', 5);
   const [shopName, setShopName] = useLocalStorage<string>('shopName', 'اسم المحل');
   const [shopAddress, setShopAddress] = useLocalStorage<string>('shopAddress', 'تفاصيل العنوان ورقم الهاتف');
@@ -294,26 +295,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onUpdatePrices }) => {
                 />
             </div>
 
-            <div className="mt-12 pt-6 border-t border-red-100">
-                <p className="text-xs text-red-400 mb-2 text-center">منطقة الخطر</p>
+            <div className="mt-12 pt-6 border-t border-red-100 space-y-4">
+                <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest text-center px-4 py-1 bg-red-50 rounded-full w-fit mx-auto mb-4">منطقة الإجراءات الحاسمة</p>
+                
                 <button 
-                    onClick={() => {
-                        if (window.confirm('تحذير نهائي! سيتم حذف جميع البيانات (الأصناف، الفواتير، المصاريف، العملاء، الموردين، الحسابات) وإعادة التطبيق لحالته الأصلية. هل أنت متأكد؟')) {
-                            const keysToRemove = [
-                                'products', 'invoices', 'expenses', 'returnRequests',
-                                'requested-items', 'customers', 'suppliers', 'purchases',
-                                'financialAccounts', 'financialTransactions', 'budgets',
-                                'tillCloseouts'
-                            ];
-                            keysToRemove.forEach(key => localStorage.removeItem(key));
-                            alert('تم تصفير جميع البيانات بنجاح. سيتم إعادة تحميل التطبيق.');
-                            window.location.reload();
-                        }
-                    }} 
-                    className="w-full bg-white text-red-600 border border-red-200 font-bold py-3 px-4 rounded-lg hover:bg-red-50 transition-colors h-12 flex items-center justify-center gap-2"
+                    onClick={() => onResetAllData && onResetAllData(true)} 
+                    className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-3 px-4 rounded-xl hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+                >
+                    <span className="material-symbols-outlined">restart_alt</span>
+                    تصفير الحركات اليومية (مع بقاء الأصناف)
+                </button>
+
+                <button 
+                    onClick={() => onResetAllData && onResetAllData(false)} 
+                    className="w-full bg-white text-red-600 border border-red-200 font-bold py-3 px-4 rounded-xl hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                 >
                     <span className="material-symbols-outlined">delete_forever</span>
-                    تصفير جميع بيانات النظام
+                    تصفير وإعادة ضبط المصنع (حذف كل شيء)
                 </button>
             </div>
         </div>

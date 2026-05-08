@@ -501,8 +501,98 @@ const App: React.FC = () => {
         setReturnRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected', processedBy: currentUser.username, processedDate: new Date().toISOString() } : r));
     };
 
+    const resetDailyData = (keepProducts = true) => {
+        if (!window.confirm(`هل أنت متأكد من تصفير وحذف جميع البيانات (${keepProducts ? 'سيتم الحسابات والفواتير والمصاريف فقط' : 'سيتم حذف كل شيء بما في ذلك الأصناف'})؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+        
+        setInvoices([]);
+        setExpenses([]);
+        setTransactions([]);
+        setReturnRequests([]);
+        setTillCloseouts([]);
+        
+        if (!keepProducts) {
+            setProducts([]);
+        }
+        
+        logActivity('تصفير النظام', `تم تصفير وحذف البيانات بواسطة ${currentUser?.username}`);
+        alert('تم تصفير البيانات بنجاح.');
+    };
+
+    const updateInvoice = (updatedInvoice: Invoice) => {
+        const oldInvoice = invoices.find(inv => inv.id === updatedInvoice.id);
+        if (!oldInvoice) return;
+
+        setInvoices(prev => prev.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv));
+        
+        // Treasury Adjustment
+        const wasPaid = oldInvoice.paymentStatus === 'paid' || oldInvoice.type === 'sale' || oldInvoice.type === 'dine_in' || oldInvoice.type === 'takeaway';
+        const isPaid = updatedInvoice.paymentStatus === 'paid' || updatedInvoice.type === 'sale' || updatedInvoice.type === 'dine_in' || updatedInvoice.type === 'takeaway';
+
+        if (wasPaid) {
+            // Reverse old income
+            addFinancialTransaction({
+                description: `تعديل فاتورة (عكس قديم) رقم ${oldInvoice.id.substring(0,8)}`,
+                amount: Math.abs(oldInvoice.total),
+                type: 'income_reversal',
+                fromAccountId: 'cash-default',
+                relatedInvoiceId: oldInvoice.id
+            });
+        }
+
+        if (isPaid) {
+            // Record new income
+            addFinancialTransaction({
+                description: `تعديل فاتورة (جديد) رقم ${updatedInvoice.id.substring(0,8)}`,
+                amount: Math.abs(updatedInvoice.total),
+                type: 'sale_income',
+                toAccountId: 'cash-default',
+                relatedInvoiceId: updatedInvoice.id
+            });
+        }
+
+        logActivity('تعديل فاتورة', `تم تعديل الفاتورة رقم ${updatedInvoice.id.substring(0,8)} بنجاح. القيمة القديمة: ${oldInvoice.total}، القيمة الجديدة: ${updatedInvoice.total}`);
+    };
+
+    const deleteInvoice = (id: string) => {
+        const invToDelete = invoices.find(inv => inv.id === id);
+        if (!invToDelete) return;
+
+        if (!window.confirm('🚨 تحذير: حذف الفاتورة سيقوم بإلغاء أثرها المالي من الخزينة والتقارير. هل أنت متأكد؟')) return;
+
+        setInvoices(prev => prev.filter(inv => inv.id !== id));
+
+        // Reversal logic
+        const wasPaid = invToDelete.paymentStatus === 'paid' || invToDelete.type === 'sale' || invToDelete.type === 'dine_in' || invToDelete.type === 'takeaway';
+        const isReturn = invToDelete.type === 'return';
+
+        if (wasPaid && !isReturn) {
+            addFinancialTransaction({
+                description: `حذف فاتورة مبيعات (عكس إيراد): ${invToDelete.id.substring(0,8)}`,
+                amount: Math.abs(invToDelete.total),
+                type: 'income_reversal',
+                fromAccountId: 'cash-default',
+                relatedInvoiceId: invToDelete.id
+            });
+        } else if (isReturn) {
+            addFinancialTransaction({
+                description: `حذف فاتورة مرتجع (عكس استرداد): ${invToDelete.id.substring(0,8)}`,
+                amount: Math.abs(invToDelete.total),
+                type: 'return_reversal',
+                toAccountId: 'cash-default',
+                relatedInvoiceId: invToDelete.id
+            });
+        }
+
+        logActivity('حذف فاتورة', `تم حذف الفاتورة رقم ${id.substring(0,8)} بواسطة ${currentUser?.username}`);
+    };
+
     const addTillCloseout = (data: Omit<TillCloseout, 'id'>) => {
         setTillCloseouts(prev => [...prev, { ...data, id: `closeout-${Date.now()}` }]);
+        // Reset counters by clearing active invoices, expenses and transactions
+        setInvoices([]);
+        setExpenses([]);
+        setTransactions([]);
+        logActivity('إغلاق الصندوق', `تم إغلاق الصندوق وتصفير العدادات بواسطة ${currentUser?.username}`);
     };
 
     // Expenses
@@ -521,6 +611,34 @@ const App: React.FC = () => {
 
         logActivity('تسجيل مصروف', `تم تسجيل مصروف بقيمة ${newExpense.amount} - البيان: ${newExpense.description}`);
         return newExpense;
+    };
+
+    const updateExpense = (updatedExpense: Expense) => {
+        const oldExpense = expenses.find(e => e.id === updatedExpense.id);
+        if (!oldExpense) return;
+
+        setExpenses(prev => prev.map(e => e.id === updatedExpense.id ? updatedExpense : e));
+        
+        // Treasury transaction reversal and new transaction
+        // First, reverse the old one (add back the money)
+        addFinancialTransaction({
+            description: `تعديل مصروف (عكس قديم): ${oldExpense.description}`,
+            amount: oldExpense.amount,
+            type: 'expense_reversal',
+            toAccountId: oldExpense.accountId,
+            category: oldExpense.category
+        });
+
+        // Then, record the new one (subtract the money)
+        addFinancialTransaction({
+            description: `تعديل مصروف (جديد): ${updatedExpense.description}`,
+            amount: updatedExpense.amount,
+            type: 'expense',
+            fromAccountId: updatedExpense.accountId,
+            category: updatedExpense.category
+        });
+
+        logActivity('تعديل مصروف', `تم تعديل المصروف بقيمة ${updatedExpense.amount} - البيان الجديد: ${updatedExpense.description}`);
     };
 
     const addManualSale = (saleData: { 
@@ -649,22 +767,22 @@ const App: React.FC = () => {
 
     const views: { [key: string]: {element: React.ReactNode, label: string, icon: string, roles: Array<'admin' | 'cashier'>} } = {
         dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} accounts={accounts} departments={departments} onAddManualSale={addManualSale} onAddExpense={addExpense} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
-        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} departments={departments} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
+        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} departments={departments} onResetDailyData={resetDailyData} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
         financialSummary: { element: <FinancialSummaryView invoices={invoices} expenses={expenses} transactions={transactions} accountBalances={accountBalances} />, label: "الملخص المالي", icon: "summarize", roles: ['admin'] },
         pos: { element: <POSView products={products} customers={customers} modifiers={modifiers} departments={departments} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
         orders: { element: <OrdersView invoices={invoices} users={users} onUpdateStatus={updateOrderStatus} onConvertToSale={onConvertToSale} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الطلبات", icon: "receipt_long", roles: ['admin', 'cashier'] },
-        invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
+        invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} onUpdateInvoice={updateInvoice} onDeleteInvoice={deleteInvoice} departments={departments} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
         departments: { element: <DepartmentsView departments={departments} addDepartment={addDepartment} updateDepartment={updateDepartment} deleteDepartment={deleteDepartment} />, label: "الأقسام", icon: "category", roles: ['admin'] },
         products: { element: <ProductsView products={products} addProduct={addProduct} updateProduct={updateProduct} deleteProduct={deleteProduct} onBatchUpdate={batchUpdateProducts} onBulkAdd={bulkAddProducts} departments={departments} modifiers={modifiers} addModifier={addModifier} updateModifier={updateModifier} deleteModifier={deleteModifier} />, label: "الأصناف", icon: "inventory_2", roles: ['admin'] },
         returnRequests: { element: <ReturnRequestsView requests={returnRequests} approveRequest={approveRequest} rejectRequest={rejectRequest} />, label: "طلبات الإرجاع", icon: "rule", roles: ['admin'] },
-        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} accounts={accounts} departments={departments} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
+        expenses: { element: <ExpensesView expenses={expenses} addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense} accounts={accounts} departments={departments} />, label: "المصروفات", icon: "payments", roles: ['admin', 'cashier'] },
         customers: { element: <CustomersView customers={customers} addCustomer={addCustomer} updateCustomer={updateCustomer} deleteCustomer={deleteCustomer} />, label: "العملاء", icon: "groups", roles: ['admin'] },
         finance: { element: <FinanceView accounts={accounts} accountBalances={accountBalances} transactions={transactions} budgets={budgets} onSaveAccount={onSaveAccount} onSaveTransaction={addFinancialTransaction} onSaveBudget={(b) => setBudgets(p=>[...p, {...b, id: `budget-${Date.now()}`}])} />, label: "الخزينة", icon: "account_balance", roles: ['admin'] },
         tillCloseouts: { element: <TillCloseoutsView tillCloseouts={tillCloseouts} />, label: "تقارير الصناديق", icon: "archive", roles: ['admin'] },
         users: { element: <UsersView users={users} addUser={addUser} updateUser={updateUser} deleteUser={deleteUser} currentUser={currentUser} />, label: "المستخدمون", icon: "manage_accounts", roles: ['admin'] },
         activityLog: { element: <ActivityLogView logs={activityLog} />, label: "سجل النشاط", icon: "history", roles: ['admin'] },
         cashierTools: { element: <CashierToolsView currentUser={currentUser} />, label: "إدارة البيانات", icon: "database", roles: ['cashier'] },
-        settings: { element: <SettingsView onUpdatePrices={updatePricesBatch} />, label: "الإعدادات", icon: "settings", roles: ['admin'] },
+        settings: { element: <SettingsView onUpdatePrices={updatePricesBatch} onResetAllData={resetDailyData} />, label: "الإعدادات", icon: "settings", roles: ['admin'] },
     };
 
     const SidebarLink: React.FC<{viewKey: string}> = ({viewKey}) => {
@@ -729,6 +847,7 @@ const App: React.FC = () => {
                     updateProduct={updateProduct}
                     deleteProduct={deleteProduct}
                     addExpense={(exp) => addExpense({...exp, accountId: 'cash-default'})}
+                    updateExpense={updateExpense}
                     deleteExpense={deleteExpense}
                     addCustomer={addCustomer}
                     updateCustomer={updateCustomer}
