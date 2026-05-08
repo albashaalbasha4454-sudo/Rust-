@@ -11,6 +11,37 @@ const normalizeNumber = (value: unknown): number => {
 
 const normalizeName = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
 
+const ORIENTAL_PRODUCT_NAMES = [
+  'اوزي', 'مندي', 'رز بخاري مع دجاج عالفحم', 'فريكة', 'يالنجي', 'كبة مقليه', 'كبة مشوية',
+  'حراق اصبعه', 'صحن فرنسي', 'قمحية', 'فتوش', 'تبولة', 'متبل', 'مسبحة', 'كبة لبنية',
+  'باشا وعساكره', 'ششبرك', 'شوربة عدس', 'مسخن'
+];
+
+const GRILL_PRODUCT_NAMES = ['كباب لحم', 'كباب جاج', 'كباب دجاج', 'شيش', 'جناحات', 'وردات', 'دبوس'];
+const WESTERN_PRODUCT_NAMES = ['ماريا عالفحم', 'فاهيتا', 'فرانشيسكو', 'دجاج مع الكاري', 'مكسيكي', 'برجر دجاج', 'برجر لحم', 'بطاطا تشيز', 'سودة دجاج', 'سوده غنم', 'ماريا عالصاج'];
+const OVEN_PRODUCT_NAMES = ['بيتزا', 'بيتزا عائلي', 'بيتزا وسط', 'بيتزا صغير', 'لحمة', 'جبنه', 'زعتر', 'محمرة', 'مرتديلا قشقوان', 'سبانخ', 'كيري', 'شوكولا', 'زيتون'];
+const FALAFEL_PRODUCT_NAMES = ['ساندويش بطاطا', 'بيض بمرتديلا', 'بيض مسلوق', 'بيض مقلي', 'فول سادة', 'حمص سادة', 'فول لبن', 'حمص لبن', 'فول بزيت', 'فتة بسمنه', 'حمص بزيت', 'فتة بزيت', 'بدوة', 'قرص فلافل', 'مخللات', 'ساندويش فلافل'];
+const TAGINE_PRODUCT_NAMES = ['فخارة', 'لحمة بفخارة', 'بطاطا بدجاج بالفخارة', 'فخارتنا', 'بامة بالفخارة', 'ملوخية بالفخارة'];
+const MEAL_PRODUCT_NAMES = ['حبة دجاج', 'ربع حبة دجاج'];
+
+const includesAnyName = (name: string, patterns: string[]) => patterns.some((pattern) => name.includes(normalizeName(pattern)));
+
+const inferDepartmentNameFromProduct = (product: any) => {
+  const currentName = normalizeName(product.name);
+  const writtenDepartment = normalizeName(product.departmentName || product.category);
+
+  if (writtenDepartment && writtenDepartment !== 'عام' && writtenDepartment !== 'غير مصنف') return writtenDepartment;
+  if (includesAnyName(currentName, ORIENTAL_PRODUCT_NAMES)) return 'قسم الشرقي';
+  if (includesAnyName(currentName, GRILL_PRODUCT_NAMES)) return 'قسم المشويات';
+  if (includesAnyName(currentName, WESTERN_PRODUCT_NAMES)) return 'قسم الغربي';
+  if (includesAnyName(currentName, OVEN_PRODUCT_NAMES)) return 'الفرن';
+  if (includesAnyName(currentName, FALAFEL_PRODUCT_NAMES)) return 'قسم الفلافل';
+  if (includesAnyName(currentName, TAGINE_PRODUCT_NAMES)) return 'طواجن';
+  if (includesAnyName(currentName, MEAL_PRODUCT_NAMES)) return 'وجبات';
+
+  return writtenDepartment || 'عام';
+};
+
 const readStoredArray = (key: string): any[] => {
   if (typeof window === 'undefined' || !window.localStorage) return [];
 
@@ -26,16 +57,16 @@ const readStoredArray = (key: string): any[] => {
 const resolveDepartment = (product: any) => {
   const departments = readStoredArray('departments');
   const rawDepartmentId = normalizeName(product.departmentId);
-  const rawDepartmentName = normalizeName(product.departmentName || product.category || 'عام') || 'عام';
+  const rawDepartmentName = inferDepartmentNameFromProduct(product);
 
   const byId = departments.find((department) => normalizeName(department.id) === rawDepartmentId);
-  if (byId) return { departmentId: byId.id, departmentName: byId.name };
+  if (byId && normalizeName(byId.name) !== 'عام') return { departmentId: byId.id, departmentName: byId.name };
 
   const byName = departments.find((department) => normalizeName(department.name) === rawDepartmentName);
   if (byName) return { departmentId: byName.id, departmentName: byName.name };
 
   const general = departments.find((department) => normalizeName(department.name) === 'عام' || department.id === 'dept-misc');
-  if (general) return { departmentId: general.id, departmentName: general.name };
+  if (general) return { departmentId: general.id, departmentName: rawDepartmentName === 'عام' ? general.name : rawDepartmentName };
 
   return {
     departmentId: rawDepartmentId && rawDepartmentId !== 'misc' ? rawDepartmentId : 'dept-misc',
@@ -55,11 +86,14 @@ const syncProductDepartmentNames = (departments: unknown) => {
     if (!Array.isArray(products)) return;
 
     const updatedProducts = products.map((product: any) => {
-      const department = departments.find((dept: any) => dept.id === product.departmentId);
+      const inferredDepartmentName = inferDepartmentNameFromProduct(product);
+      const inferredDepartment = departments.find((dept: any) => normalizeName(dept.name) === inferredDepartmentName);
+      const department = inferredDepartment || departments.find((dept: any) => dept.id === product.departmentId);
       if (!department) return product;
 
       return {
         ...product,
+        departmentId: department.id,
         departmentName: department.name,
         category: department.name,
         updatedAt: new Date().toISOString()
