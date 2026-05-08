@@ -50,7 +50,7 @@ const ReportsView: React.FC<{
 
     const salesInvoices = invoices.filter(inv => {
         const invDate = new Date(inv.paidDate || inv.date);
-        const isCompletedOrder = (inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed' && inv.paymentStatus === 'paid'));
+        const isCompletedOrder = (inv.type === 'sale' || inv.type === 'dine_in' || inv.type === 'takeaway' || inv.type === 'return' || ((inv.type === 'delivery' || inv.type === 'reservation') && inv.status === 'completed' && inv.paymentStatus === 'paid'));
         return isCompletedOrder && invDate >= start && invDate <= end;
     });
     
@@ -66,18 +66,13 @@ const ReportsView: React.FC<{
       const { salesInvoices, filteredExpenses } = filteredData;
       const stats: { [key: string]: { name: string, sales: number, profit: number, expense: number } } = {};
       
-      // Initialize with all unique departments from products and expenses
-      const allDeptNames = Array.from(new Set([
-          ...products.map(p => p.departmentName || 'عام'),
-          ...filteredExpenses.map(e => {
-              const d = departments.find(dept => dept.id === e.departmentId);
-              return d?.name || 'عام';
-          })
-      ]));
-
-      allDeptNames.forEach(name => {
-          stats[name] = { name, sales: 0, profit: 0, expense: 0 };
+      // Initialize with all departments from props to ensure 0-val rows exist
+      departments.forEach(dept => {
+          stats[dept.name] = { name: dept.name, sales: 0, profit: 0, expense: 0 };
       });
+
+      // Also ensure "عام" exists
+      if (!stats['عام']) stats['عام'] = { name: 'عام', sales: 0, profit: 0, expense: 0 };
 
       // Sales and Profit per department
       salesInvoices.forEach(inv => {
@@ -90,18 +85,25 @@ const ReportsView: React.FC<{
               const profit = item.lineTotal - cost;
               stats[deptName].profit += profit;
           });
+          
+          if (inv.deliveryFee && inv.deliveryFee > 0) {
+              const targetDept = 'عام'; // Delivery fee is attributed to General
+              if (!stats[targetDept]) stats[targetDept] = { name: targetDept, sales: 0, profit: 0, expense: 0 };
+              stats[targetDept].sales += inv.deliveryFee;
+              stats[targetDept].profit += inv.deliveryFee;
+          }
       });
 
       // Expenses per department
       filteredExpenses.forEach(exp => {
           const dept = departments.find(d => d.id === exp.departmentId);
-          const deptName = dept?.name || 'عام';
+          const deptName = dept?.name || exp.category || 'عام';
           if (!stats[deptName]) stats[deptName] = { name: deptName, sales: 0, profit: 0, expense: 0 };
           stats[deptName].expense += exp.amount;
       });
 
       return Object.values(stats);
-  }, [filteredData, products, departments]);
+  }, [filteredData, departments]);
 
   const reportStats = useMemo(() => {
     const { salesInvoices, filteredExpenses } = filteredData;
@@ -314,8 +316,11 @@ const ReportsView: React.FC<{
 
       {/* New Section: Department Analysis Table */}
       <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
             <h3 className="text-xl font-bold text-slate-800 border-r-4 border-indigo-600 pr-3">تحليل الأقسام</h3>
+            <p className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                الفترة: <span className="text-indigo-600">{startDate}</span> إلى <span className="text-indigo-600">{endDate}</span>
+            </p>
         </div>
         <div className="overflow-x-auto">
             <table className="w-full text-right">
@@ -340,6 +345,55 @@ const ReportsView: React.FC<{
                             </td>
                         </tr>
                     ))}
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+      {/* Item Profit Analysis Table */}
+      <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
+            <h3 className="text-xl font-bold text-slate-800 border-r-4 border-indigo-600 pr-3">تحليل أرباح الأصناف</h3>
+            <p className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                الفترة: <span className="text-indigo-600">{startDate}</span> إلى <span className="text-indigo-600">{endDate}</span>
+            </p>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-right">
+                <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        <th className="px-6 py-4 rounded-r-xl">الصنف</th>
+                        <th className="px-6 py-4 text-center">الكمية المباعة</th>
+                        <th className="px-6 py-4 text-left">إجمالي المبيعات</th>
+                        <th className="px-6 py-4 text-left">إجمالي التكلفة</th>
+                        <th className="px-6 py-4 text-left rounded-l-xl">إجمالي الربح</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                        const productStats: { [key: string]: { name: string, qty: number, sales: number, cost: number } } = {};
+                        filteredData.salesInvoices.forEach(inv => {
+                            inv.items.forEach(item => {
+                                if (!productStats[item.productId]) {
+                                    productStats[item.productId] = { name: item.productName, qty: 0, sales: 0, cost: 0 };
+                                }
+                                productStats[item.productId].qty += item.quantity;
+                                productStats[item.productId].sales += item.lineTotal;
+                                productStats[item.productId].cost += (item.costPrice || 0) * item.quantity;
+                            });
+                        });
+                        return Object.values(productStats).sort((a, b) => b.sales - a.sales).map((stat, i) => (
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-3 font-bold text-slate-700">{stat.name}</td>
+                                <td className="px-6 py-3 text-center font-mono">{stat.qty}</td>
+                                <td className="px-6 py-3 text-left font-mono text-indigo-600 font-bold">{stat.sales.toLocaleString()}</td>
+                                <td className="px-6 py-3 text-left font-mono text-slate-500">{stat.cost.toLocaleString()}</td>
+                                <td className={`px-6 py-3 text-left font-mono font-black ${stat.sales - stat.cost >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {(stat.sales - stat.cost).toLocaleString()}
+                                </td>
+                            </tr>
+                        ));
+                    })()}
                 </tbody>
             </table>
         </div>

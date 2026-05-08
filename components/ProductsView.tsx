@@ -41,6 +41,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [stockFilter, setStockFilter] = useState('all');
+  const [issueFilter, setIssueFilter] = useState('all');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,6 +71,20 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
         if (!matchesSearch) return false;
 
         if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+
+        if (stockFilter === 'low') {
+            const stock = p.stock || 0;
+            const threshold = p.stockThreshold || 5;
+            if (stock > threshold) return false;
+        } else if (stockFilter === 'out') {
+            if ((p.stock || 0) > 0) return false;
+        }
+
+        if (issueFilter === 'no_price') {
+            if ((p.price || 0) > 0 && p.reviewStatus !== 'needs_price') return false;
+        } else if (issueFilter === 'no_dept') {
+            if (p.departmentId && p.departmentName) return false;
+        }
 
         if (minPrice !== '' && p.price < parseFloat(minPrice)) return false;
         if (maxPrice !== '' && p.price > parseFloat(maxPrice)) return false;
@@ -165,6 +181,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
   const clearFilters = () => {
       setSearchTerm('');
       setCategoryFilter('all');
+      setStockFilter('all');
+      setIssueFilter('all');
       setMinPrice('');
       setMaxPrice('');
       setCurrentPage(1);
@@ -238,6 +256,30 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
                         ))}
                     </select>
                 </div>
+                <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">حالة المخزون</label>
+                    <select 
+                        value={stockFilter} 
+                        onChange={e => { setStockFilter(e.target.value); setCurrentPage(1); }} 
+                        className="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white text-xs"
+                    >
+                        <option value="all">كل المخزون</option>
+                        <option value="low">مخزون منخفض</option>
+                        <option value="out">نفذ من المخزن</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">فلتر المشاكل</label>
+                    <select 
+                        value={issueFilter} 
+                        onChange={e => { setIssueFilter(e.target.value); setCurrentPage(1); }} 
+                        className="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white text-xs"
+                    >
+                        <option value="all">الكل</option>
+                        <option value="no_price" className="text-amber-600 font-bold">بدون سعر</option>
+                        <option value="no_dept" className="text-red-600 font-bold">بدون قسم</option>
+                    </select>
+                </div>
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <label className="block text-xs font-semibold text-slate-500 mb-1">أقل سعر</label>
@@ -286,12 +328,14 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
         )}
         <div className="space-y-2 md:space-y-0">
             {/* Desktop Header */}
-            <div className="hidden md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider px-4 py-4 border-b border-slate-200">
+            <div className="hidden md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto,auto,auto] gap-4 items-center bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider px-4 py-4 border-b border-slate-200">
                 <div className="text-center"><input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /></div>
                 <div className="w-12">الصورة</div>
                 <div>المنتج</div>
                 <div className="text-center">النوع</div>
+                <div className="text-center">المخزون</div>
                 <div className="text-right">السعر</div>
+                <div className="text-right">الربح</div>
                 <div className="text-center">الإجراءات</div>
             </div>
 
@@ -299,7 +343,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
             <div className="space-y-3 md:space-y-0 divide-y divide-slate-100">
             {paginatedProducts.map((p) => (
                 <div key={p.id} className={`
-                    md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto] md:gap-4 md:items-center
+                    md:grid md:grid-cols-[auto,auto,1fr,auto,auto,auto,auto,auto] md:gap-4 md:items-center
                     p-4 md:px-4 md:py-3 
                     hover:bg-indigo-50/30 ${selectedProducts.has(p.id) ? 'bg-indigo-50/50' : 'bg-white md:bg-transparent'}
                     block rounded-lg md:rounded-none shadow-sm md:shadow-none transition-colors
@@ -341,25 +385,38 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
                     
                     {/* Desktop Name */}
                     <div className="hidden md:block font-semibold text-slate-800">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <span>{p.name}</span>
                             {p.reviewStatus === 'needs_price' && (
-                                <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg flex items-center gap-1">
+                                <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg flex items-center gap-1 border border-amber-200">
                                     <span className="material-symbols-outlined text-[12px]">info</span>
-                                    يحتاج تسعير
+                                    بدون سعر
+                                </span>
+                            )}
+                            {(!p.departmentId || !p.departmentName) && (
+                                <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-lg flex items-center gap-1 border border-red-200">
+                                    <span className="material-symbols-outlined text-[12px]">warning</span>
+                                    بدون قسم
                                 </span>
                             )}
                         </div>
                     </div>
 
                     {/* Mobile Grid Data */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:hidden">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:hidden mt-2 pt-2 border-t border-slate-50">
                         <div><span className="text-slate-500">النوع:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.type === 'service' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>{p.type === 'service' ? 'خدمة' : 'منتج'}</span></div>
+                        <div><span className="text-slate-500">المخزون:</span> <span className={`font-mono font-bold ${ (p.stock || 0) <= (p.stockThreshold || 5) ? 'text-red-600' : 'text-slate-700' }`}>{p.stock || 0}</span></div>
                         <div><span className="text-slate-500">السعر:</span> <span>{p.salePrice ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-green-600">{p.salePrice.toFixed(2)}</span></> : p.discountPercent ? <><span className="line-through text-slate-400">{p.price.toFixed(2)}</span> <span className="font-bold text-orange-600">{(p.price * (1 - p.discountPercent / 100)).toFixed(2)}</span> <span className="text-[10px] text-orange-500">({p.discountPercent}%)</span></> : p.price.toFixed(2)}</span></div>
+                        <div><span className="text-slate-500">الربح:</span> <span className="font-bold text-emerald-600 tracking-tight">{( (p.salePrice || (p.price * (1 - (p.discountPercent || 0) / 100))) - (p.costPrice || 0) ).toFixed(2)}</span></div>
                     </div>
 
                     {/* Desktop Data Cells */}
                     <div className="hidden md:block text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.type === 'service' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-800'}`}>{p.type === 'service' ? 'خدمة' : 'منتج'}</span></div>
+                    <div className="hidden md:block text-center">
+                        <div className={`font-mono font-bold ${ (p.stock || 0) <= (p.stockThreshold || 5) ? 'text-red-500 bg-red-50' : 'text-slate-600' } px-2 py-1 rounded-lg`}>
+                            {p.stock || 0}
+                        </div>
+                    </div>
                     <div className="hidden md:block text-right">
                         {p.salePrice ? (
                             <div className="flex flex-col items-end">
@@ -373,6 +430,9 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
                                 <span className="text-[10px] text-orange-500">-{p.discountPercent}%</span>
                             </div>
                         ) : <span className="font-medium text-slate-800">{p.price.toFixed(2)}</span>}
+                    </div>
+                    <div className="hidden md:block text-right">
+                        { ( (p.salePrice || (p.price * (1 - (p.discountPercent || 0) / 100))) - (p.costPrice || 0) ).toFixed(2) }
                     </div>
                     <div className="hidden md:flex items-center justify-center gap-2">
                         <button onClick={() => handleOpenModal(p)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-blue-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="تعديل"><span className="material-symbols-outlined text-lg">edit</span></button>
@@ -576,6 +636,8 @@ const ProductModal: React.FC<{
   const [discountPercent, setDiscountPercent] = useState(product?.discountPercent?.toString() || '');
   const [category, setCategory] = useState(product?.category || '');
   const [departmentName, setDepartmentName] = useState(product?.departmentName || '');
+  const [stock, setStock] = useState(product?.stock?.toString() || '0');
+  const [stockThreshold, setStockThreshold] = useState(product?.stockThreshold?.toString() || '5');
   const [image, setImage] = useState(product?.image || '');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -613,6 +675,8 @@ const ProductModal: React.FC<{
       costPrice: costPrice ? parseFloat(costPrice) : undefined,
       salePrice: salePrice ? parseFloat(salePrice) : undefined,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
+      stock: parseInt(stock) || 0,
+      stockThreshold: parseInt(stockThreshold) || 0,
       departmentName: departmentName.trim(),
       departmentId: `dept-${departmentName.trim().replace(/\s+/g, '-').toLowerCase()}`,
       status: product?.status || 'available',
@@ -688,8 +752,14 @@ const ProductModal: React.FC<{
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <InputField id="price" label="سعر البيع" value={price} onChange={e => setPrice(e.target.value)} error={errors.price} type="number" />
               <InputField id="costPrice" label="سعر التكلفة" value={costPrice} onChange={e => setCostPrice(e.target.value)} type="number" />
-              <InputField id="salePrice" label="سعر العرض" value={salePrice} onChange={e => setSalePrice(e.target.value)} type="number" />
-              <InputField id="discountPercent" label="نسبة الخصم %" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} type="number" />
+              <InputField id="profit" label="الربح المتوقع" value={( (parseFloat(salePrice || price) || 0) - (parseFloat(costPrice) || 0) ).toFixed(2)} disabled type="text" className="bg-emerald-50 font-bold text-emerald-700" />
+              <InputField id="stock" label="المخزون الحالي" value={stock} onChange={e => setStock(e.target.value)} type="number" />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <InputField id="salePrice" label="سعر العرض" value={salePrice} onChange={e => setSalePrice(e.target.value)} type="number" />
+               <InputField id="discountPercent" label="نسبة الخصم %" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} type="number" />
+               <InputField id="stockThreshold" label="حد التنبيه للمخزون" value={stockThreshold} onChange={e => setStockThreshold(e.target.value)} type="number" />
             </div>
 
             <InputField id="description" label="الوصف (اختياري)" value={description} onChange={e => setDescription(e.target.value)} />

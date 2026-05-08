@@ -16,6 +16,8 @@ export interface Product {
   imageUrl?: string;
   notes?: string;
   reviewStatus?: 'ok' | 'needs_price';
+  stock?: number;
+  stockThreshold?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -88,6 +90,7 @@ export interface Invoice {
   items: InvoiceItem[];
   total: number;
   totalProfit?: number;
+  totalCost?: number;
   type: OrderType;
   customerInfo?: {
     id?: string | null;

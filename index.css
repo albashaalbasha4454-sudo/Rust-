@@ -1,6 +1,37 @@
-/* Global styles for مطابخ الشرق */
+@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display", serif;
+  
+  --color-brand-primary: #d4af37; /* Gold */
+  --color-brand-secondary: #0a0a0a; /* Deep Charcoal */
+  --color-brand-accent: #c2410c; /* Burnt Orange */
+  
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+}
+
 body {
-  font-family: 'Cairo', sans-serif;
+  @apply bg-slate-50 text-slate-900;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Custom scrollbar for a cleaner look */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-premium;
 }

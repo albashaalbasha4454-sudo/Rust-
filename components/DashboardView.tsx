@@ -6,21 +6,23 @@ Chart.register(...registerables);
 
 const StatCard = ({ title, value, icon, colorTheme, subtext }: { title: string, value: string | number, icon: string, colorTheme: 'emerald' | 'indigo' | 'red' | 'orange', subtext?: string }) => {
     const themeStyles = {
-        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
-        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' },
-        red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100' },
-        orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
+        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', accent: 'border-emerald-200' },
+        indigo: { bg: 'bg-brand-primary/10', text: 'text-brand-secondary', accent: 'border-brand-primary/30' },
+        red: { bg: 'bg-red-50', text: 'text-red-600', accent: 'border-red-200' },
+        orange: { bg: 'bg-brand-accent/10', text: 'text-brand-accent', accent: 'border-brand-accent/30' },
     }[colorTheme];
     
     return (
-        <div className={`bg-white p-6 rounded-[1.5rem] shadow-sm flex items-center gap-5 border border-slate-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
-            <div className={`p-4 rounded-2xl ${themeStyles.bg} flex items-center justify-center`}>
+        <div className={`bg-white p-6 rounded-2xl shadow-premium flex items-center gap-6 border-b-4 ${themeStyles.accent} hover:shadow-xl transition-all duration-500 transform hover:-translate-y-1.5 active:scale-95 group cursor-default`}>
+            <div className={`w-14 h-14 rounded-2xl ${themeStyles.bg} flex items-center justify-center transition-transform group-hover:rotate-12`}>
                 <span className={`material-symbols-outlined text-3xl ${themeStyles.text}`}>{icon}</span>
             </div>
             <div>
-                <h3 className="text-slate-500 text-sm font-semibold">{title}</h3>
-                <p className={`text-3xl font-black mt-1 ${themeStyles.text}`}>{value}</p>
-                {subtext && <p className="text-xs text-slate-400 mt-1 font-medium">{subtext}</p>}
+                <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">{title}</h3>
+                <div className="flex items-baseline gap-1 mt-1">
+                    <p className={`text-3xl font-black ${themeStyles.text} font-mono tracking-tighter`}>{value}</p>
+                </div>
+                {subtext && <p className="text-[10px] text-slate-300 mt-0.5 font-bold italic">{subtext}</p>}
             </div>
         </div>
     );
@@ -73,7 +75,8 @@ const DashboardView: React.FC<{
     netSales, totalExpenses, 
     pendingOrders, recentSales, dailyData,
     todayNetSales,
-    expenseBreakdown, topProducts
+    expenseBreakdown, topProducts,
+    lowStockCount, issueCount
   } = useMemo(() => {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
@@ -123,7 +126,7 @@ const DashboardView: React.FC<{
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
         
-    const dailyData: { [date: string]: { expense: number, sales: number } } = {};
+    const dailyData: { [date: string]: { expense: number, sales: number, profit: number } } = {};
     
     // Initialize dates for the selected range to ensure continuous lines
     if (dateRange !== 'all') {
@@ -132,18 +135,19 @@ const DashboardView: React.FC<{
             const d = new Date();
             d.setDate(today.getDate() - i);
             const dateStr = d.toISOString().split('T')[0];
-            dailyData[dateStr] = { expense: 0, sales: 0 };
+            dailyData[dateStr] = { expense: 0, sales: 0, profit: 0 };
         }
     }
 
      [...completedSales, ...returns].forEach(inv => {
         const day = new Date(inv.date).toISOString().split('T')[0];
-        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0 };
+        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0, profit: 0 };
         dailyData[day].sales += inv.total;
+        dailyData[day].profit += inv.totalProfit || 0;
     });
     filteredExpenses.forEach(exp => {
         const day = new Date(exp.date).toISOString().split('T')[0];
-        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0 };
+        if (!dailyData[day]) dailyData[day] = { expense: 0, sales: 0, profit: 0 };
         dailyData[day].expense += exp.amount;
     });
 
@@ -155,7 +159,7 @@ const DashboardView: React.FC<{
 
     // Top Products
     const productSales: { [id: string]: { name: string, count: number, total: number } } = {};
-    completedSales.forEach(inv => {
+    [...completedSales, ...returns].forEach(inv => {
         inv.items.forEach(item => {
             if (!productSales[item.productId]) {
                 productSales[item.productId] = { name: item.productName, count: 0, total: 0 };
@@ -168,11 +172,20 @@ const DashboardView: React.FC<{
         .sort((a, b) => b.total - a.total)
         .slice(0, 5);
 
+    const lowStockCount = products.filter(p => (p.stock || 0) <= (p.stockThreshold || 5)).length;
+    const issueCount = products.filter(p => 
+        (p.price || 0) <= 0 || 
+        p.reviewStatus === 'needs_price' || 
+        !p.departmentId || 
+        !p.departmentName
+    ).length;
+
     return {
         netSales, totalExpenses: totalExpensesValue, 
         pendingOrders, recentSales,
         dailyData, todayNetSales,
-        expenseBreakdown, topProducts
+        expenseBreakdown, topProducts,
+        lowStockCount, issueCount
     };
   }, [invoices, expenses, products, dateRange]);
 
@@ -388,11 +401,13 @@ const DashboardView: React.FC<{
           </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <StatCard title="صافي المبيعات اليوم" value={`$${todayNetSales.toFixed(2)}`} icon="today" colorTheme="emerald" subtext="اليوم فقط" />
-        <StatCard title="إجمالي المبيعات" value={`$${netSales.toFixed(2)}`} icon="monitoring" colorTheme="indigo" subtext={dateRangeText} />
-        <StatCard title="المصروفات" value={`$${totalExpenses.toFixed(2)}`} icon="receipt_long" colorTheme="red" subtext={dateRangeText} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-8">
+        <StatCard title="صافي المبيعات اليوم" value={todayNetSales.toLocaleString()} icon="today" colorTheme="emerald" subtext="اليوم فقط" />
+        <StatCard title="إجمالي المبيعات" value={netSales.toLocaleString()} icon="monitoring" colorTheme="indigo" subtext={dateRangeText} />
+        <StatCard title="المصروفات" value={totalExpenses.toLocaleString()} icon="receipt_long" colorTheme="red" subtext={dateRangeText} />
         <StatCard title="طلبات قيد الانتظار" value={pendingOrders} icon="pending_actions" colorTheme="orange" subtext="توصيل وحجوزات" />
+        <StatCard title="تنبيهات المخزون" value={lowStockCount} icon="inventory_2" colorTheme="red" subtext="أصناف منخفضة" />
+        <StatCard title="أصناف غير مكتملة" value={issueCount} icon="warning" colorTheme="orange" subtext="بدون سعر أو قسم" />
       </div>
 
       <div className="flex flex-wrap gap-2 sm:gap-3 mb-8">

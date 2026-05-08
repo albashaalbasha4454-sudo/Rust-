@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import useAuth from './hooks/useAuth';
-import { initialUsers, initialProducts, initialCustomers, initialAccounts } from './initialData';
+import { initialUsers, initialProducts, initialCustomers, initialAccounts, initialDepartments } from './initialData';
 
 import type { Product, Department, Modifier, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout, ActivityLog } from './types';
 
@@ -67,29 +67,7 @@ const App: React.FC = () => {
     const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
     const [modifiers, setModifiers] = useLocalStorage<Modifier[]>('modifiers', []);
     
-    const departments = useMemo((): Department[] => {
-        const deptMap = new Map<string, { id: string, name: string }>();
-        
-        // Add default main departments if they don't exist
-        const mainDepts = ['قسم الشرقي', 'قسم المشويات', 'قسم الغربي', 'قسم الفلافل', 'الفرن'];
-        mainDepts.forEach(name => {
-            const id = `dept-${name.replace(/\s+/g, '-').toLowerCase()}`;
-            deptMap.set(id, { id, name });
-        });
-
-        products.forEach(p => {
-            if (p.departmentId && p.departmentName) {
-                deptMap.set(p.departmentId, { id: p.departmentId, name: p.departmentName });
-            }
-        });
-
-        return Array.from(deptMap.values()).map(d => ({
-            ...d,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }));
-    }, [products]);
+    const [departments, setDepartments] = useLocalStorage<Department[]>('departments', initialDepartments);
 
     const [activityLog, setActivityLog] = useLocalStorage<ActivityLog[]>('activityLog', []);
     const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
@@ -104,7 +82,7 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState(currentUser?.role === 'admin' ? 'dashboard' : 'pos');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [shopName] = useLocalStorage<string>('shopName', 'مطعم الباشا');
-    const [shopAddress] = useLocalStorage<string>('shopAddress', 'شارع النصر - القاهرة - التل حي الوسعة');
+    const [shopAddress] = useLocalStorage<string>('shopAddress', 'حي الوسعة - التل');
     const [isCloseTillModalOpen, setIsCloseTillModalOpen] = useState(false);
     const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
     
@@ -155,22 +133,29 @@ const App: React.FC = () => {
 
     // --- DEPARTMENT HANDLERS ---
     const addDepartment = (dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
-        logActivity('أضافة قسم', `يرجى إضافة منتج جديد وربطه بالقسم: ${dept.name}`);
-        alert('الأقسام الآن مرتبطة بالأصناف. لإضافة قسم جديد، قم بإضافة صنف جديد واكتب اسم القسم المطلوب له.');
+        const newDept: Department = {
+            ...dept,
+            id: `dept-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        setDepartments(prev => [...prev, newDept]);
+        logActivity('أضافة قسم', `تم إضافة قسم جديد: ${dept.name}`);
     };
     const updateDepartment = (id: string, dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
-        const oldDept = departments.find(d => d.id === id);
-        if (oldDept) {
-            setProducts(prev => prev.map(p => p.departmentId === id ? { ...p, departmentName: dept.name, departmentId: `dept-${dept.name.replace(/\s+/g, '-').toLowerCase()}` } : p));
-            logActivity('تعديل قسم', `تم تعديل القسم ${oldDept.name} إلى ${dept.name}`);
-        }
+        setDepartments(prev => prev.map(d => d.id === id ? { ...d, ...dept, updatedAt: new Date().toISOString() } : d));
+        // Update product department names if they match the ID
+        setProducts(prev => prev.map(p => p.departmentId === id ? { ...p, departmentName: dept.name } : p));
+        logActivity('تعديل قسم', `تم تعديل القسم إلى: ${dept.name}`);
     };
     const deleteDepartment = (id: string) => {
         if (products.some(p => p.departmentId === id)) {
             alert('لا يمكن حذف هذا القسم لأنه يحتوي على أصناف. قم بتغيير قسم الأصناف أولاً.');
             return;
         }
-        logActivity('حذف قسم', `تم محاولة حذف القسم ${id}`);
+        if (!window.confirm('هل أنت متأكد من حذف هذا القسم؟')) return;
+        setDepartments(prev => prev.filter(d => d.id !== id));
+        logActivity('حذف قسم', `تم حذف القسم رقم: ${id}`);
     };
     
     // Modifier Handlers
@@ -187,6 +172,21 @@ const App: React.FC = () => {
     const addProduct = (product: Omit<Product, 'id'>) => {
         const newProduct = { ...product, id: `prod-${Date.now()}` };
         setProducts(prev => [...prev, newProduct]);
+        
+        // Ensure department exists
+        if (newProduct.departmentName && newProduct.departmentId) {
+            setDepartments(prev => {
+                if (prev.some(d => d.id === newProduct.departmentId || d.name === newProduct.departmentName)) return prev;
+                return [...prev, {
+                    id: newProduct.departmentId,
+                    name: newProduct.departmentName,
+                    status: 'active',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }];
+            });
+        }
+
         logActivity('إضافة صنف', `تم إضافة صنف جديد: ${newProduct.name}`);
         return newProduct;
     };
@@ -194,6 +194,7 @@ const App: React.FC = () => {
     const bulkAddProducts = (newProducts: Array<Partial<Product>>) => {
         let addedCount = 0;
         let skippedCount = 0;
+        const newDepts: Department[] = [];
 
         setProducts(prev => {
             const updated = [...prev];
@@ -211,6 +212,16 @@ const App: React.FC = () => {
                     return;
                 }
 
+                if (departmentName && departmentId) {
+                    newDepts.push({
+                        id: departmentId,
+                        name: departmentName,
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+
                 const price = typeof pInput.price === 'string' ? parseFloat(pInput.price) : (pInput.price || 0);
 
                 const product: Product = {
@@ -219,6 +230,8 @@ const App: React.FC = () => {
                     departmentId,
                     departmentName,
                     price: price,
+                    stock: pInput.stock || 0,
+                    stockThreshold: pInput.stockThreshold || 5,
                     category: pInput.category || departmentName,
                     description: pInput.description || '',
                     status: (pInput.status as any) || 'available',
@@ -233,11 +246,36 @@ const App: React.FC = () => {
             return updated;
         });
 
+        if (newDepts.length > 0) {
+            setDepartments(prev => {
+                const filteredNewDepts = newDepts.filter(nd => !prev.some(d => d.id === nd.id || d.name === nd.name));
+                // Remove duplicates within newDepts
+                const uniqueNewDepts = filteredNewDepts.filter((v, i, a) => a.findIndex(t => (t.id === v.id || t.name === v.name)) === i);
+                return [...prev, ...uniqueNewDepts];
+            });
+        }
+
         logActivity('إضافة أصناف بالجملة', `تم إضافة ${addedCount} صنف جديد وتخطي ${skippedCount} مكرر.`);
         return { added: addedCount, skipped: skippedCount };
     };
     const updateProduct = (id: string, updatedProduct: Omit<Product, 'id'>) => {
         setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedProduct, id } : p));
+        
+        // Ensure department exists
+        if (updatedProduct.departmentName && updatedProduct.departmentId) {
+            setDepartments(prev => {
+                const name = updatedProduct.departmentName!;
+                const deptId = updatedProduct.departmentId!;
+                if (prev.some(d => d.id === deptId || d.name === name)) return prev;
+                return [...prev, {
+                    id: deptId,
+                    name: name,
+                    status: 'active',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }];
+            });
+        }
     };
     const deleteProduct = (id: string) => {
         if (!window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
@@ -283,11 +321,12 @@ const App: React.FC = () => {
         if (!currentUser) throw new Error("No user is logged in.");
 
         const total = items.reduce((sum, item) => sum + item.lineTotal, 0) + deliveryFee;
-        const totalProfit = items.reduce((sum, item) => {
+        const totalCost = items.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0);
+        const totalProfit = (items.reduce((sum, item) => {
             const cost = (item.costPrice || 0);
             const profitPerUnit = item.unitPrice - cost;
             return sum + (profitPerUnit * item.quantity);
-        }, 0);
+        }, 0)) + deliveryFee;
         
         const isImmediate = type === 'sale';
         const isRestaurantOrder = type === 'dine_in' || type === 'takeaway';
@@ -299,6 +338,7 @@ const App: React.FC = () => {
             items: items.map(item => ({...item})),
             total,
             totalProfit,
+            totalCost,
             customerInfo,
             deliveryFee,
             source,
@@ -398,12 +438,21 @@ const App: React.FC = () => {
         if (!currentUser) return;
         if (!window.confirm('هل أنت متأكد من إتمام عملية الإرجاع؟ سيتم استرداد المبلغ.')) return;
         const total = returnItems.reduce((sum, item) => sum + item.lineTotal, 0);
+        const totalCost = returnItems.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0);
+        const totalProfit = total - totalCost;
+
         const newReturnInvoice: Invoice = {
             id: `ret-${Date.now()}`,
             date: new Date().toISOString(),
             type: 'return',
-            items: returnItems,
+            items: returnItems.map(item => ({
+                ...item,
+                quantity: -item.quantity,
+                lineTotal: -item.lineTotal
+            })),
             total: -total,
+            totalProfit: -totalProfit,
+            totalCost: -totalCost,
             status: 'completed',
             paymentStatus: 'paid', // Refund is considered a 'paid' transaction
             processedBy: currentUser.username,
@@ -494,6 +543,8 @@ const App: React.FC = () => {
             status: 'completed',
             paymentStatus: 'paid',
             total: saleData.amount,
+            totalProfit: saleData.amount,
+            totalCost: 0,
             processedBy: currentUser.username,
             notes: saleData.notes,
             items: [{
@@ -620,7 +671,10 @@ const App: React.FC = () => {
         const view = views[viewKey];
         if (!view || !view.roles.includes(currentUser.role)) return null;
         return (
-            <button onClick={() => { setCurrentView(viewKey); setIsSidebarOpen(false); }} className={`w-full text-right flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${currentView === viewKey ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 font-bold scale-[1.02]' : 'hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 font-medium'}`}>
+            <button 
+                onClick={() => { setCurrentView(viewKey); setIsSidebarOpen(false); }} 
+                className={`w-full text-right flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${currentView === viewKey ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 font-bold scale-[1.02]' : 'hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 font-medium'}`}
+            >
                 <span className="material-symbols-outlined">{view.icon}</span>
                 <span>{view.label}</span>
             </button>

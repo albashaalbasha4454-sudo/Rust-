@@ -85,7 +85,7 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
         'التاريخ': new Date(inv.date).toLocaleDateString('ar-EG'),
         'العميل': inv.customerInfo?.name || '-',
         'النوع': getInvoiceTypeStyle(inv.type).label,
-        'الإجمالي': inv.total.toFixed(2),
+        'الإجمالي': inv.total.toLocaleString(),
         'الحالة': inv.status
     }));
     exportToExcel(formattedData, 'الفواتير');
@@ -253,7 +253,7 @@ const InvoicesView: React.FC<InvoicesViewProps> = ({ invoices, processReturn, se
                                 {typeStyle.label}
                             </span>
                         </td>
-                        <td className="py-4 px-6 font-bold text-slate-800">{invoice.total.toFixed(2)}</td>
+                        <td className="py-4 px-6 font-bold text-slate-800">{invoice.total.toLocaleString()}</td>
                         <td className="py-4 px-6 text-center">
                             <div className="flex items-center justify-center gap-2">
                                 <button onClick={() => setInvoiceToPrint(invoice)} className="p-2 rounded-lg text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all" title="طباعة">

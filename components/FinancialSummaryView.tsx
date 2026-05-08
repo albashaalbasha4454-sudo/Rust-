@@ -71,16 +71,16 @@ const FinancialSummaryView: React.FC<{
                       <h3 className="text-2xl font-bold text-slate-800">قائمة الأرباح والخسائر</h3>
                   </div>
                   <div className="space-y-3 text-lg">
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>إجمالي الإيرادات (من المبيعات)</span> <span className="font-bold text-green-600">{financialData.totalRevenue.toFixed(2)}</span></div>
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) إجمالي المرتجعات</span> <span className="font-bold text-red-600">{financialData.totalReturnsValue.toFixed(2)}</span></div>
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) تكلفة البضاعة المباعة</span> <span className="font-bold text-red-600">{financialData.cogs.toFixed(2)}</span></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>إجمالي الإيرادات (من المبيعات)</span> <span className="font-bold text-green-600">{financialData.totalRevenue.toLocaleString()}</span></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) إجمالي المرتجعات</span> <span className="font-bold text-red-600">{financialData.totalReturnsValue.toLocaleString()}</span></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) تكلفة البضاعة المباعة</span> <span className="font-bold text-red-600">{financialData.cogs.toLocaleString()}</span></div>
                       <hr/>
-                      <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg"><strong>مجمل الربح</strong> <strong className="font-extrabold text-indigo-700">{financialData.grossProfit.toFixed(2)}</strong></div>
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) إجمالي المصروفات</span> <span className="font-bold text-red-600">{financialData.totalExpenses.toFixed(2)}</span></div>
+                      <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg"><strong>مجمل الربح</strong> <strong className="font-extrabold text-indigo-700">{financialData.grossProfit.toLocaleString()}</strong></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) إجمالي المصروفات</span> <span className="font-bold text-red-600">{financialData.totalExpenses.toLocaleString()}</span></div>
                       <hr/>
                       <div className={`flex justify-between items-center p-4 rounded-lg ${financialData.netProfit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
                           <strong className="text-xl">صافي الربح</strong> 
-                          <strong className={`font-extrabold text-2xl ${financialData.netProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{financialData.netProfit.toFixed(2)}</strong>
+                          <strong className={`font-extrabold text-2xl ${financialData.netProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{financialData.netProfit.toLocaleString()}</strong>
                       </div>
                   </div>
               </div>
@@ -91,12 +91,12 @@ const FinancialSummaryView: React.FC<{
                       <h3 className="text-2xl font-bold text-slate-800">قائمة رأس المال (حقوق الملكية)</h3>
                   </div>
                   <div className="space-y-3 text-lg">
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(+) إيداعات رأس المال</span> <span className="font-bold text-green-600">{financialData.capitalDeposits.toFixed(2)}</span></div>
-                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) مسحوبات الأرباح</span> <span className="font-bold text-red-600">{financialData.profitWithdrawals.toFixed(2)}</span></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(+) إيداعات رأس المال</span> <span className="font-bold text-green-600">{financialData.capitalDeposits.toLocaleString()}</span></div>
+                      <div className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50"><span>(-) مسحوبات الأرباح</span> <span className="font-bold text-red-600">{financialData.profitWithdrawals.toLocaleString()}</span></div>
                       <hr/>
                       <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                         <strong>حقوق الملكية (تقديري)</strong> 
-                        <strong className="font-extrabold text-orange-700 text-xl">{financialData.ownerEquity.toFixed(2)}</strong>
+                        <strong className="font-extrabold text-orange-700 text-xl">{financialData.ownerEquity.toLocaleString()}</strong>
                       </div>
                   </div>
               </div>
@@ -109,7 +109,7 @@ const FinancialSummaryView: React.FC<{
                       <h3 className="text-2xl font-bold text-slate-800">ملخص المركز المالي</h3>
                   </div>
                   <div className="space-y-6">
-                      <StatCard title="إجمالي النقدية" subtext="في جميع الخزائن والبنوك" value={financialData.totalCashAndBank.toFixed(2)} icon="wallet" valueClassName="text-green-600" />
+                      <StatCard title="إجمالي النقدية" subtext="في جميع الخزائن والبنوك" value={financialData.totalCashAndBank.toLocaleString()} icon="wallet" valueClassName="text-green-600" />
                   </div>
               </div>
           </div>

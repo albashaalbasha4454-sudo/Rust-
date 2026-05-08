@@ -108,13 +108,13 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
                                 )}
                                 {item.extraPrice ? (
                                     <div className="text-[10px] text-emerald-600 mt-1">
-                                        زيادة سعر: {item.extraPrice.toFixed(2)}
+                                        زيادة سعر: {item.extraPrice.toLocaleString()}
                                     </div>
                                 ) : null}
                             </td>
-                            <td className="p-3 text-left text-dark-700">{item.unitPrice.toFixed(2)}</td>
+                            <td className="p-3 text-left text-dark-700">{item.unitPrice.toLocaleString()}</td>
                             <td className="p-3 text-center text-dark-700">{item.quantity}</td>
-                            <td className="p-3 text-left font-bold text-dark-800">{item.lineTotal.toFixed(2)}</td>
+                            <td className="p-3 text-left font-bold text-dark-800">{item.lineTotal.toLocaleString()}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -145,17 +145,17 @@ const PrintInvoice: React.FC<PrintInvoiceProps> = ({ invoice, onClose, shopName,
             <div className="w-64 space-y-2">
                 <div className="flex justify-between text-sm p-2">
                     <span className="text-dark-500">المجموع الفرعي:</span>
-                    <span className="font-medium text-dark-800">{subtotal.toFixed(2)}</span>
+                    <span className="font-medium text-dark-800">{subtotal.toLocaleString()}</span>
                 </div>
                 {invoice.deliveryFee ? (
                     <div className="flex justify-between text-sm p-2">
                         <span className="text-dark-500">رسوم التوصيل:</span>
-                        <span className="font-medium text-dark-800">{invoice.deliveryFee.toFixed(2)}</span>
+                        <span className="font-medium text-dark-800">{invoice.deliveryFee.toLocaleString()}</span>
                     </div>
                 ) : null}
                 <div className="flex justify-between text-xl font-black p-3 bg-dark-800 text-white rounded-lg shadow-md">
                     <span>الإجمالي:</span>
-                    <span>{invoice.total.toFixed(2)}</span>
+                    <span>{invoice.total.toLocaleString()}</span>
                 </div>
             </div>
           </div>

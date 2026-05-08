@@ -227,14 +227,14 @@ const confirmAddToCart = () => {
             
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-80">
-                <span className="material-symbols-outlined absolute top-1/2 -translate-y-1/2 right-3 text-slate-400 text-sm">search</span>
+                <span className="material-symbols-outlined absolute top-1/2 -translate-y-1/2 right-3 text-slate-400 text-sm z-10">search</span>
                 <input
                   ref={searchInputRef}
                   type="text"
                   placeholder="ابحث عن صنف أو كود..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-2.5 ps-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 font-medium"
+                  className="w-full p-2.5 ps-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 font-medium text-right"
                 />
               </div>
               <button 
@@ -339,18 +339,20 @@ const confirmAddToCart = () => {
                   
                   <div className="mt-auto pt-3 flex items-center justify-between border-t border-slate-50 mt-3">
                     <div className="flex flex-col">
-                        <span className="text-indigo-600 font-black text-base">
-                            {p.discountPercent 
-                                ? ((p.salePrice ?? p.price) * (1 - p.discountPercent / 100)).toFixed(2) 
-                                : (p.salePrice ?? p.price).toFixed(2)}
+                        <span className="text-indigo-600 font-black text-sm sm:text-base">
+                            {p.reviewStatus === 'needs_price' || p.price === 0 
+                                ? 'حدد السعر' 
+                                : p.discountPercent 
+                                    ? ((p.salePrice ?? p.price) * (1 - p.discountPercent / 100)).toLocaleString() 
+                                    : (p.salePrice ?? p.price).toLocaleString()}
                         </span>
-                        {p.discountPercent && (
+                        {p.discountPercent && p.price > 0 && (
                             <span className="text-[10px] text-slate-300 line-through">
-                                {(p.salePrice ?? p.price).toFixed(2)}
+                                {(p.salePrice ?? p.price).toLocaleString()}
                             </span>
                         )}
                     </div>
-                    <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
                       <span className="material-symbols-outlined text-sm">add</span>
                     </div>
                   </div>
@@ -572,30 +574,38 @@ const confirmAddToCart = () => {
                     </button>
                   </div>
                   
-                  <div className="flex flex-col sm:flex-row items-center gap-3 mt-4 pt-4 border-t border-slate-50">
-                    {/* Quantity Controls */}
-                    <div className="flex items-center bg-slate-100 rounded-xl p-1 shrink-0 w-full sm:w-auto">
-                        <button 
-                          onClick={() => updateCartItem(index, { quantity: Math.max(1, item.quantity - 1) })}
-                          className="w-9 h-9 flex items-center justify-center bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-red-500 transition-all active:scale-90"
-                        >
-                          <span className="material-symbols-outlined text-lg font-bold">remove</span>
-                        </button>
-                        <div className="w-12 text-center text-base font-black text-slate-900 font-mono">
-                          {item.quantity}
+                  <div className="flex flex-col items-center gap-4 mt-4 pt-4 border-t border-slate-50">
+                    <div className="flex items-center justify-between w-full">
+                        {/* Quantity Controls */}
+                        <div className="flex items-center bg-slate-100 rounded-xl p-1 shrink-0">
+                            <button 
+                              onClick={() => updateCartItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                              className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-red-500 transition-all active:scale-90"
+                            >
+                              <span className="material-symbols-outlined text-lg font-bold">remove</span>
+                            </button>
+                            <div className="w-14 text-center text-lg font-black text-slate-900 font-mono">
+                              {item.quantity}
+                            </div>
+                            <button 
+                              onClick={() => updateCartItem(index, { quantity: item.quantity + 1 })}
+                              className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-emerald-500 transition-all active:scale-90"
+                            >
+                              <span className="material-symbols-outlined text-lg font-bold">add</span>
+                            </button>
                         </div>
-                        <button 
-                          onClick={() => updateCartItem(index, { quantity: item.quantity + 1 })}
-                          className="w-9 h-9 flex items-center justify-center bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-emerald-500 transition-all active:scale-90"
-                        >
-                          <span className="material-symbols-outlined text-lg font-bold">add</span>
-                        </button>
+                        <div className="text-left">
+                            <span className="text-[10px] font-bold text-slate-400 block mb-1">الإجمالي</span>
+                            <span className="text-xl font-black text-indigo-600 font-mono">
+                                {item.lineTotal.toLocaleString()}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-2 w-full">
-                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="w-full space-y-3">
+                       <div className="grid grid-cols-2 gap-3">
                           <div className="relative">
-                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs">category</span>
+                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">category</span>
                              <select 
                                value={item.departmentId || 'misc'}
                                onChange={e => {
@@ -605,7 +615,7 @@ const confirmAddToCart = () => {
                                      departmentName: selectedDept?.name || 'عام' 
                                  });
                                }}
-                               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 text-[10px] font-medium text-slate-600 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
+                               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-8 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
                              >
                                 <option value="misc">القسم (عام)</option>
                                 {departments.map((d: any) => (
@@ -614,26 +624,26 @@ const confirmAddToCart = () => {
                              </select>
                           </div>
                           <div className="relative">
-                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs">notes</span>
+                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 text-xs">add_card</span>
                              <input 
-                               type="text" 
-                               placeholder="ملاحظات الصنف (مثلاً: بدون مخلل...)" 
-                               value={item.itemNotes || ''} 
-                               onChange={e => updateCartItem(index, { itemNotes: e.target.value })}
-                               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 text-[10px] font-medium text-slate-600 outline-none focus:bg-white focus:border-indigo-400 transition-all placeholder:text-slate-300"
+                                 type="number" 
+                                 placeholder="إضافة سعر..." 
+                                 value={item.extraPrice || ''} 
+                                 onChange={e => updateCartItem(index, { extraPrice: parseFloat(e.target.value) || 0 })}
+                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-10 py-2.5 text-xs font-black text-emerald-600 outline-none focus:bg-white focus:border-emerald-400 transition-all font-mono"
                              />
+                             <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-emerald-50 text-emerald-600 text-[8px] px-1.5 py-0.5 rounded font-black">EXTRA</div>
                           </div>
                        </div>
-                       <div className="relative group/extra">
-                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 text-xs">add_card</span>
-                          <input 
-                              type="number" 
-                              placeholder="مبلغ إضافي..." 
-                              value={item.extraPrice || ''} 
-                              onChange={e => updateCartItem(index, { extraPrice: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-10 py-2 text-[10px] font-black text-emerald-600 outline-none focus:bg-white focus:border-emerald-400 transition-all font-mono"
+                       <div className="relative">
+                          <span className="material-symbols-outlined absolute right-3 top-3 text-slate-400 text-xs">notes</span>
+                          <textarea 
+                            placeholder="ملاحظات الصنف (مثلاً: بدون مخلل، زيادة شطة...)" 
+                            value={item.itemNotes || ''} 
+                            onChange={e => updateCartItem(index, { itemNotes: e.target.value })}
+                            rows={1}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-8 text-xs font-medium text-slate-600 outline-none focus:bg-white focus:border-indigo-400 transition-all placeholder:text-slate-300 resize-none min-h-[40px]"
                           />
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-emerald-50 text-emerald-600 text-[8px] px-1.5 py-0.5 rounded font-black">السعر+</div>
                        </div>
                     </div>
                   </div>
@@ -641,7 +651,7 @@ const confirmAddToCart = () => {
                   {/* Item Total Ribbon */}
                   <div className="absolute top-0 left-0 bg-indigo-50 border-br border-indigo-100 px-3 py-1 rounded-br-2xl">
                     <span className="text-xs font-black text-indigo-600 font-mono tracking-tighter">
-                      {(item.lineTotal).toFixed(2)}
+                      {(item.lineTotal).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -666,16 +676,16 @@ const confirmAddToCart = () => {
               />
           </div>
 
-          <div className="flex flex-col gap-1 mb-8">
+          <div className="flex flex-col gap-2 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
             <div className="flex justify-between items-center px-1">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المجموع الفرعي</span>
-               <span className="text-sm font-bold text-slate-500 font-mono">{(cartTotal * 1).toFixed(2)}</span>
+               <span className="text-xs font-bold text-slate-500">المجموع الفرعي</span>
+               <span className="text-sm font-bold text-slate-500 font-mono">{cartTotal.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between items-center mt-2 px-1">
+            <div className="flex justify-between items-center mt-1 px-1">
               <span className="text-sm font-black text-slate-900">المبلغ المستحق</span>
               <div className="flex flex-col items-end">
                 <span className="text-3xl font-black text-indigo-600 font-mono tracking-tighter">
-                  {cartTotal.toFixed(2)}
+                  {cartTotal.toLocaleString()}
                 </span>
                 <div className="h-1 w-20 bg-indigo-100 rounded-full mt-1"></div>
               </div>

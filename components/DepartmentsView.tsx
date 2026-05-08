@@ -10,7 +10,7 @@ interface DepartmentsViewProps {
   deleteDepartment: (id: string) => void;
 }
 
-const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepartment, updateDepartment }) => {
+const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepartment, updateDepartment, deleteDepartment }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
 
@@ -37,18 +37,19 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepar
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-800">إدارة الأقسام</h1>
-        <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-indigo-700">
+        <button onClick={() => handleOpenModal()} className="bg-brand-secondary text-brand-primary py-2.5 px-6 rounded-2xl font-black shadow-premium border border-brand-primary/20 hover:scale-105 active:scale-95 transition-all">
           + إضافة قسم
         </button>
       </div>
 
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6 flex items-start gap-4 shadow-sm">
-        <span className="material-symbols-outlined text-indigo-600 mt-0.5">info</span>
+      <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-2xl p-6 mb-8 flex items-start gap-4 shadow-sm">
+        <span className="material-symbols-outlined text-brand-secondary">info</span>
         <div>
-          <h4 className="font-bold text-indigo-900 text-sm mb-1">معلومات عن إدارة الأقسام</h4>
-          <p className="text-xs text-indigo-700 leading-relaxed">
-            تم ربط الأقسام بشكل ديناميكي بالأصناف. يمكنك إضافة قسم جديد بمجرد تعيين اسم قسم جديد لأي صنف. 
-            تعديل اسم القسم هنا سيقوم بتحديث جميع الأصناف المرتبطة به تلقائياً.
+          <h4 className="font-black text-brand-secondary text-sm mb-1 uppercase tracking-tight">إدارة التصنيفات والأقسام</h4>
+          <p className="text-xs text-brand-accent font-bold leading-relaxed">
+            يمكنك الآن التحكم الكامل في أقسام المطعم. إضافة قسم هنا يجعله متاحاً عند إضافة أصناف جديدة. 
+            كما يتم إضافة الأقسام تلقائياً عند كتابة اسم قسم جديد أثناء إضافة صنف. 
+            تعديل اسم القسم سيقوم بتحديث جميع الأصناف المرتبطة به.
           </p>
         </div>
       </div>
@@ -60,7 +61,7 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepar
       ) : (
         <div className="bg-white shadow-sm border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-right">
-            <thead className="bg-slate-50 text-slate-600 uppercase text-xs font-bold">
+            <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest">
               <tr>
                 <th className="p-4">القسم</th>
                 <th className="p-4">المسؤول</th>
@@ -78,8 +79,15 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, addDepar
                       {dept.status === 'active' ? 'نشط' : 'معطل'}
                     </span>
                   </td>
-                  <td className="p-4">
-                    <button onClick={() => handleOpenModal(dept)} className="text-indigo-600 hover:text-indigo-800 font-medium">تعديل</button>
+                  <td className="p-4 flex gap-2">
+                    <button onClick={() => handleOpenModal(dept)} className="text-brand-secondary hover:text-brand-accent font-black text-sm flex items-center gap-1 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">edit</span>
+                        تعديل
+                    </button>
+                    <button onClick={() => deleteDepartment(dept.id)} className="text-red-500 hover:text-red-700 font-black text-sm flex items-center gap-1 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                        حذف
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -134,7 +142,7 @@ const DepartmentModal: React.FC<{
             </div>
             <InputField id="notes" label="ملاحظات (اختياري)" value={notes} onChange={e => setNotes(e.target.value)} />
             {error && <p className="text-red-600 text-sm">{error}</p>}
-            <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg font-bold">حفظ</button>
+            <button type="submit" className="w-full bg-brand-secondary text-brand-primary p-4 rounded-2xl font-black shadow-premium border border-brand-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">حفظ</button>
         </form>
     </Modal>
   );

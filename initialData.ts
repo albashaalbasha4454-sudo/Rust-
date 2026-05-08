@@ -1,4 +1,4 @@
-import type { User, Product, Customer, FinancialAccount } from './types';
+import type { User, Product, Customer, FinancialAccount, Department } from './types';
 
 // Hashing function for demonstration.
 const simpleHash = (password: string, salt: string) => `hashed_${password}_with_${salt}`;
@@ -134,6 +134,8 @@ prod-1777552960658,ساندويش فلافل ,product,,قسم الفلافل,,60
         const departmentName = deptMap[rawCategory] || rawCategory;
         const deptId = `dept-${departmentName.replace(/\s+/g, '-').toLowerCase()}`;
         const price = parseFloat(parts[6]) || 0;
+        const stock = Math.floor(Math.random() * 50);
+        const threshold = 10;
 
         return {
             id: parts[0] || `p-${Math.random().toString(36).substr(2, 9)}`,
@@ -141,9 +143,11 @@ prod-1777552960658,ساندويش فلافل ,product,,قسم الفلافل,,60
             type: (parts[2] as any) || 'product',
             description: parts[3] || '',
             category: rawCategory,
-            departmentId: deptId,
-            departmentName: departmentName,
+            departmentId: deptId === 'dept-' ? undefined : deptId,
+            departmentName: departmentName === '' ? undefined : departmentName,
             price: price,
+            stock: stock,
+            stockThreshold: threshold,
             status: parts[8] === 'True' ? 'available' : 'unavailable',
             reviewStatus: price > 0 ? 'ok' : 'needs_price',
             createdAt: now,
@@ -165,7 +169,20 @@ const createInitialAccounts = (): FinancialAccount[] => {
     ];
 }
 
+const createInitialDepartments = (): Department[] => {
+    const mainDepts = ['قسم الشرقي', 'قسم المشويات', 'قسم الغربي', 'قسم الفلافل', 'الفرن'];
+    const now = new Date().toISOString();
+    return mainDepts.map(name => ({
+        id: `dept-${name.replace(/\s+/g, '-').toLowerCase()}`,
+        name,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now
+    }));
+};
+
 export const initialUsers = createInitialUsers();
 export const initialProducts = createInitialProducts();
 export const initialCustomers = createInitialCustomers();
 export const initialAccounts = createInitialAccounts();
+export const initialDepartments = createInitialDepartments();
