@@ -124,7 +124,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-        setSelectedProducts(new Set(paginatedProducts.map(p => p.id)));
+        setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
     } else {
         setSelectedProducts(new Set());
     }
@@ -396,7 +396,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, modifiers, depart
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} totalItems={filteredProducts.length} />
         </div>
       </div>
-      {isModalOpen && <ProductModal product={editingProduct} onClose={handleCloseModal} onSave={handleSave} />}
+      {isModalOpen && <ProductModal product={editingProduct} onClose={handleCloseModal} onSave={handleSave} departments={departments} />}
       {isBulkAddOpen && (
         <BulkAddModal 
           departments={departments} 
@@ -553,17 +553,19 @@ const ProductModal: React.FC<{
   product: Product | null;
   onClose: () => void;
   onSave: (product: Omit<Product, 'id'>) => void;
-}> = ({ product, onClose, onSave }) => {
+  departments: Department[];
+}> = ({ product, onClose, onSave, departments }) => {
   const [name, setName] = useState(product?.name || '');
   const [type, setType] = useState<Product['type']>(product?.type || 'product');
   const [description, setDescription] = useState(product?.description || '');
   const [price, setPrice] = useState(product?.price.toString() || '');
+  const [costPrice, setCostPrice] = useState(product?.costPrice?.toString() || '');
   const [salePrice, setSalePrice] = useState(product?.salePrice?.toString() || '');
   const [discountPercent, setDiscountPercent] = useState(product?.discountPercent?.toString() || '');
   const [category, setCategory] = useState(product?.category || '');
+  const [departmentName, setDepartmentName] = useState(product?.departmentName || '');
   const [image, setImage] = useState(product?.image || '');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isAutofilling, setIsAutofilling] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -580,12 +582,11 @@ const ProductModal: React.FC<{
     }
   };
 
-  const handleAutofill = async () => { /* ... (implementation exists) ... */ };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: { [key: string]: string } = {};
     if (!name.trim()) newErrors.name = 'اسم المنتج مطلوب.';
+    if (!departmentName.trim()) newErrors.departmentName = 'اسم القسم مطلوب.';
     const numPrice = parseFloat(price);
     if (isNaN(numPrice) || numPrice < 0) newErrors.price = 'السعر يجب أن يكون رقماً موجباً.';
 
@@ -597,8 +598,15 @@ const ProductModal: React.FC<{
     onSave({
       name, description, category, type, image,
       price: parseFloat(price),
+      costPrice: costPrice ? parseFloat(costPrice) : undefined,
       salePrice: salePrice ? parseFloat(salePrice) : undefined,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
+      departmentName: departmentName.trim(),
+      departmentId: `dept-${departmentName.trim().replace(/\s+/g, '-').toLowerCase()}`,
+      status: product?.status || 'available',
+      reviewStatus: parseFloat(price) > 0 ? 'ok' : 'needs_price',
+      updatedAt: new Date().toISOString(),
+      createdAt: product?.createdAt || new Date().toISOString()
     });
   };
 
@@ -647,20 +655,36 @@ const ProductModal: React.FC<{
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                   <label className="block text-slate-700 text-sm font-bold mb-2">القسم</label>
+                   <input 
+                      list="deptList" 
+                      value={departmentName} 
+                      onChange={e => setDepartmentName(e.target.value)} 
+                      className={`w-full p-2.5 border rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${errors.departmentName ? 'border-red-500' : 'border-slate-300'}`}
+                      placeholder="ادخل اسم القسم (مثال: قسم الشرقي)"
+                   />
+                   <datalist id="deptList">
+                      {departments.map(d => <option key={d.id} value={d.name} />)}
+                   </datalist>
+                   {errors.departmentName && <p className="text-red-500 text-xs mt-1">{errors.departmentName}</p>}
+                </div>
+                <InputField id="category" label="التصنيف الفرعي (اختياري)" value={category} onChange={e => setCategory(e.target.value)} placeholder="مثال: وجبات، طواجن" />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <InputField id="price" label="سعر البيع" value={price} onChange={e => setPrice(e.target.value)} error={errors.price} type="number" />
-              <InputField id="salePrice" label="سعر العرض (اختياري)" value={salePrice} onChange={e => setSalePrice(e.target.value)} type="number" />
+              <InputField id="costPrice" label="سعر التكلفة" value={costPrice} onChange={e => setCostPrice(e.target.value)} type="number" />
+              <InputField id="salePrice" label="سعر العرض" value={salePrice} onChange={e => setSalePrice(e.target.value)} type="number" />
               <InputField id="discountPercent" label="نسبة الخصم %" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} type="number" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                <InputField id="category" label="التصنيف (اختياري)" value={category} onChange={e => setCategory(e.target.value)} />
-            </div>
             <InputField id="description" label="الوصف (اختياري)" value={description} onChange={e => setDescription(e.target.value)} />
         
         <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-200">
           <button type="button" onClick={onClose} className="bg-slate-100 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors">إلغاء</button>
-          <button type="submit" className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">حفظ</button>
+          <button type="submit" className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">حفظ المنتج</button>
         </div>
       </form>
     </Modal>

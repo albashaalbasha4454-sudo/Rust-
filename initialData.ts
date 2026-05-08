@@ -1,4 +1,4 @@
-import type { User, Product, Customer, FinancialAccount, Department } from './types';
+import type { User, Product, Customer, FinancialAccount } from './types';
 
 // Hashing function for demonstration.
 const simpleHash = (password: string, salt: string) => `hashed_${password}_with_${salt}`;
@@ -10,20 +10,6 @@ const createInitialUsers = (): User[] => {
     return [
         { id: 'user-1', username: 'admin', passwordHash: simpleHash('albasha.123', adminSalt), salt: adminSalt, role: 'admin' },
         { id: 'user-2', username: 'cashier', passwordHash: simpleHash('123', cashierSalt), salt: cashierSalt, role: 'cashier' },
-    ];
-};
-
-const createInitialDepartments = (): Department[] => {
-    const now = new Date().toISOString();
-    return [
-        { id: 'dept-falafel', name: 'قسم الفلافل', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-oriental', name: 'قسم الشرقي', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-grill', name: 'قسم المشويات', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-western', name: 'قسم الغربي', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-meals', name: 'وجبات', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-tagine', name: 'طواجن', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-oven', name: 'الفرن', status: 'active', createdAt: now, updatedAt: now },
-        { id: 'dept-misc', name: 'عام', status: 'active', createdAt: now, updatedAt: now },
     ];
 };
 
@@ -102,7 +88,7 @@ prod-1777551031505,محمرة ولحمة,product,,الفرن ,,3000,0,True,,0,,F
 prod-1777551061420,محمرة وزعتر,product,,الفرن ,,3000,0,True,,0,,False,,0,
 prod-1777551081756,محمرة ومرتديلا,product,,الفرن ,,4000,0,True,,0,,False,,0,
 prod-1777551107166,زيتون وقشقوان,product,,الفرن ,,4000,0,True,,0,,False,,0,
-prod-1777551272907,زعتر وقشقوان,product,,الفرن ,,3000,0,True,,0,,False,,0,
+prod-1777551272907,زعتر وقشقوان,product,,ال الفرن ,,3000,0,True,,0,,False,,0,
 prod-1777551292806,زعتر وخضار,product,,الفرن ,,3000,0,True,,0,,False,,0,
 prod-1777551338906,بيض ولحمة ,product,,الفرن ,,6000,0,True,,0,,False,,0,
 prod-1777551542819,بيض مقلي مشروح,product,,قسم الفلافل,,8000,0,True,,0,,False,,0,
@@ -128,13 +114,13 @@ prod-1777552859197,مخللات كيلو,product,,قسم الفلافل,,22000,0
 prod-1777552960658,ساندويش فلافل ,product,,قسم الفلافل,,6000,0,True,,0,,False,,0,`;
 
     const deptMap: {[key: string]: string} = {
-        'قسم الفلافل': 'dept-falafel',
-        'قسم الشرقي': 'dept-oriental',
-        'قسم المشويات': 'dept-grill',
-        'قسم الغربي': 'dept-western',
-        'وجبات': 'dept-meals',
-        'طواجن': 'dept-tagine',
-        'الفرن': 'dept-oven',
+        'قسم الفلافل': 'قسم الفلافل',
+        'قسم الشرقي': 'قسم الشرقي',
+        'قسم المشويات': 'قسم المشويات',
+        'قسم الغربي': 'قسم الغربي',
+        'وجبات': 'قسم الشرقي',
+        'طواجن': 'قسم الشرقي',
+        'الفرن': 'الفرن',
     };
 
     const now = new Date().toISOString();
@@ -144,8 +130,9 @@ prod-1777552960658,ساندويش فلافل ,product,,قسم الفلافل,,60
         if (parts.length < 5) return null;
         
         const name = parts[1]?.trim() || 'صنف غير معروف';
-        const category = parts[4]?.trim() || 'عام';
-        const deptId = deptMap[category] || 'dept-misc';
+        const rawCategory = parts[4]?.trim() || 'عام';
+        const departmentName = deptMap[rawCategory] || rawCategory;
+        const deptId = `dept-${departmentName.replace(/\s+/g, '-').toLowerCase()}`;
         const price = parseFloat(parts[6]) || 0;
 
         return {
@@ -153,9 +140,9 @@ prod-1777552960658,ساندويش فلافل ,product,,قسم الفلافل,,60
             name: name,
             type: (parts[2] as any) || 'product',
             description: parts[3] || '',
-            category: category,
+            category: rawCategory,
             departmentId: deptId,
-            departmentName: category,
+            departmentName: departmentName,
             price: price,
             status: parts[8] === 'True' ? 'available' : 'unavailable',
             reviewStatus: price > 0 ? 'ok' : 'needs_price',
@@ -178,9 +165,7 @@ const createInitialAccounts = (): FinancialAccount[] => {
     ];
 }
 
-
 export const initialUsers = createInitialUsers();
 export const initialProducts = createInitialProducts();
 export const initialCustomers = createInitialCustomers();
 export const initialAccounts = createInitialAccounts();
-export const initialDepartments = createInitialDepartments();

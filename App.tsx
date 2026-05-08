@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import useAuth from './hooks/useAuth';
-import { initialUsers, initialProducts, initialCustomers, initialAccounts, initialDepartments } from './initialData';
+import { initialUsers, initialProducts, initialCustomers, initialAccounts } from './initialData';
 
 import type { Product, Department, Modifier, Invoice, InvoiceItem, User, Expense, ReturnRequest, Customer, FinancialAccount, FinancialTransaction, OrderType, OrderStatus, PaymentStatus, Budget, TillCloseout, ActivityLog } from './types';
 
@@ -66,17 +66,31 @@ const App: React.FC = () => {
 
     const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts);
     const [modifiers, setModifiers] = useLocalStorage<Modifier[]>('modifiers', []);
-    const [departments, setDepartments] = useLocalStorage<Department[]>('departments', initialDepartments);
+    
+    const departments = useMemo((): Department[] => {
+        const deptMap = new Map<string, { id: string, name: string }>();
+        
+        // Add default main departments if they don't exist
+        const mainDepts = ['قسم الشرقي', 'قسم المشويات', 'قسم الغربي', 'قسم الفلافل', 'الفرن'];
+        mainDepts.forEach(name => {
+            const id = `dept-${name.replace(/\s+/g, '-').toLowerCase()}`;
+            deptMap.set(id, { id, name });
+        });
 
-    // Migration to replace old products with new ones
-    useEffect(() => {
-        const hasOldProducts = products.some(p => p.id === 'prod-1' || p.id === 'prod-8');
-        const isVerySmall = products.length > 0 && products.length <= 8;
-        if (hasOldProducts || isVerySmall) {
-            setProducts(initialProducts);
-            setDepartments(initialDepartments);
-        }
-    }, [products.length]);
+        products.forEach(p => {
+            if (p.departmentId && p.departmentName) {
+                deptMap.set(p.departmentId, { id: p.departmentId, name: p.departmentName });
+            }
+        });
+
+        return Array.from(deptMap.values()).map(d => ({
+            ...d,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }));
+    }, [products]);
+
     const [activityLog, setActivityLog] = useLocalStorage<ActivityLog[]>('activityLog', []);
     const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
     const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', []);
@@ -141,15 +155,22 @@ const App: React.FC = () => {
 
     // --- DEPARTMENT HANDLERS ---
     const addDepartment = (dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
-        setDepartments(prev => [...prev, {...dept, id: `dept-${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()}]);
-        logActivity('أضافة قسم', `تم إضافة قسم جديد: ${dept.name}`);
+        logActivity('أضافة قسم', `يرجى إضافة منتج جديد وربطه بالقسم: ${dept.name}`);
+        alert('الأقسام الآن مرتبطة بالأصناف. لإضافة قسم جديد، قم بإضافة صنف جديد واكتب اسم القسم المطلوب له.');
     };
     const updateDepartment = (id: string, dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>) => {
-        setDepartments(prev => prev.map(d => d.id === id ? {...d, ...dept, updatedAt: new Date().toISOString()} : d));
-        logActivity('تعديل قسم', `تم تعديل القسم: ${dept.name}`);
+        const oldDept = departments.find(d => d.id === id);
+        if (oldDept) {
+            setProducts(prev => prev.map(p => p.departmentId === id ? { ...p, departmentName: dept.name, departmentId: `dept-${dept.name.replace(/\s+/g, '-').toLowerCase()}` } : p));
+            logActivity('تعديل قسم', `تم تعديل القسم ${oldDept.name} إلى ${dept.name}`);
+        }
     };
     const deleteDepartment = (id: string) => {
-        setDepartments(prev => prev.filter(d => d.id !== id));
+        if (products.some(p => p.departmentId === id)) {
+            alert('لا يمكن حذف هذا القسم لأنه يحتوي على أصناف. قم بتغيير قسم الأصناف أولاً.');
+            return;
+        }
+        logActivity('حذف قسم', `تم محاولة حذف القسم ${id}`);
     };
     
     // Modifier Handlers
@@ -262,6 +283,11 @@ const App: React.FC = () => {
         if (!currentUser) throw new Error("No user is logged in.");
 
         const total = items.reduce((sum, item) => sum + item.lineTotal, 0) + deliveryFee;
+        const totalProfit = items.reduce((sum, item) => {
+            const cost = (item.costPrice || 0);
+            const profitPerUnit = item.unitPrice - cost;
+            return sum + (profitPerUnit * item.quantity);
+        }, 0);
         
         const isImmediate = type === 'sale';
         const isRestaurantOrder = type === 'dine_in' || type === 'takeaway';
@@ -272,6 +298,7 @@ const App: React.FC = () => {
             type,
             items: items.map(item => ({...item})),
             total,
+            totalProfit,
             customerInfo,
             deliveryFee,
             source,
@@ -571,9 +598,9 @@ const App: React.FC = () => {
 
     const views: { [key: string]: {element: React.ReactNode, label: string, icon: string, roles: Array<'admin' | 'cashier'>} } = {
         dashboard: { element: <DashboardView invoices={invoices} expenses={expenses} products={products} customers={customers} accounts={accounts} departments={departments} onAddManualSale={addManualSale} onAddExpense={addExpense} />, label: "لوحة التحكم", icon: "dashboard", roles: ['admin'] },
-        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
+        reports: { element: <ReportsView invoices={invoices} products={products} expenses={expenses} departments={departments} />, label: "التقارير", icon: "analytics", roles: ['admin'] },
         financialSummary: { element: <FinancialSummaryView invoices={invoices} expenses={expenses} transactions={transactions} accountBalances={accountBalances} />, label: "الملخص المالي", icon: "summarize", roles: ['admin'] },
-        pos: { element: <POSView products={products} customers={customers} modifiers={modifiers} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
+        pos: { element: <POSView products={products} customers={customers} modifiers={modifiers} departments={departments} onCompleteSale={onCompleteSale} onCreateDeliveryOrder={onCreateDeliveryOrder} onCreateReservation={onCreateReservation} />, label: "نقطة البيع", icon: "point_of_sale", roles: ['admin', 'cashier'] },
         orders: { element: <OrdersView invoices={invoices} users={users} onUpdateStatus={updateOrderStatus} onConvertToSale={onConvertToSale} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الطلبات", icon: "receipt_long", roles: ['admin', 'cashier'] },
         invoices: { element: <InvoicesView invoices={invoices} processReturn={processReturn} sendReturnRequest={sendReturnRequest} currentUser={currentUser} shopName={shopName} shopAddress={shopAddress} />, label: "الفواتير", icon: "receipt", roles: ['admin', 'cashier'] },
         departments: { element: <DepartmentsView departments={departments} addDepartment={addDepartment} updateDepartment={updateDepartment} deleteDepartment={deleteDepartment} />, label: "الأقسام", icon: "category", roles: ['admin'] },

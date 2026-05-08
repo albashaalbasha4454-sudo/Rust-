@@ -47,8 +47,7 @@ export interface InvoiceItem {
   departmentName: string;
   quantity: number;
   basePrice: number;
-  originalPrice?: number;
-  offerPrice?: number;
+  costPrice?: number;
   modifiers: {
     modifierId: string;
     modifierName: string;
@@ -88,6 +87,7 @@ export interface Invoice {
   paidDate?: string; // ISO string, set when payment is completed
   items: InvoiceItem[];
   total: number;
+  totalProfit?: number;
   type: OrderType;
   customerInfo?: {
     id?: string | null;
